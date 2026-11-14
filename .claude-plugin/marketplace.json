@@ -1,0 +1,7 @@
+{
+  "name": "repo-orchestrator-marketplace",
+  "owner": { "name": "YOUR_NAME" },
+  "plugins": [
+    { "name": "repo-orchestrator", "source": "./", "description": "Routed multi-repo orchestrator." }
+  ]
+}
