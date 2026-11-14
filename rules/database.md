@@ -4,4 +4,5 @@ description: Apply when the change touches database queries, schemas, migrations
 ---
 
 # Database rules
-<!-- TODO: indexing, migrations (reversible, zero-downtime), transactions, query patterns -->
+<!-- Apply when the change touches queries, schemas, migrations, or ORM code. -->
+<!-- TODO: indexing, reversible/zero-downtime migrations, transactions, query patterns -->

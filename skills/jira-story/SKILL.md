@@ -11,9 +11,8 @@ Turn an existing plan into one Jira story written the way a PM would write it. T
 
 ## Input
 1. If the user gave a plan path, use it.
-2. Otherwise use the newest file in `plans/`: the parent folder's `.claude/orchestrator/plans/` for cross-repo, or the current repo's `.claude/orchestrator/plans/` for single-repo.
-3. Optionally read `analysis-report.md` from the same `.claude/orchestrator/` folder, for Background only.
-4. If no plan is found, say so and stop. Do not invent one.
+2. Otherwise use `plan.md` in the PARENT task folder: `<CENTRAL>/<parent-key>/tasks/<task-slug>/plan.md` (single-repo: the one key). If several tasks exist and none is specified, use the newest task folder. Optionally read `analysis-report.md` from the same folder, for Background only.
+3. If no plan is found, say so and stop. Do not invent one.
 
 ## Template (fill every section; one page total)
 
@@ -65,7 +64,7 @@ Plain sequence, e.g. "API first, then client".
 - Acceptance criteria must be observable behaviour, not implementation steps.
 
 ## Output
-1. Write to `.claude/orchestrator/jira/STORY-<slug>-<YYYY-MM-DD>.md` (same parent/repo rule as the plan). Create the folder if missing. Never overwrite an existing story file.
+1. Write to `<CENTRAL>/<parent-key>/tasks/<task-slug>/jira/STORY-<slug>-<YYYY-MM-DD>.md`. Create the folder if missing. Never overwrite.
 2. Show the story in chat.
 3. End with one line listing any "TBD" items the user should fill in before pasting into Jira.
 
