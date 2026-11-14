@@ -4,6 +4,7 @@ description: Language-agnostic coding rules — performance pitfalls (e.g. N+1 q
 ---
 
 # Coding rules
-- Avoid N+1 queries; batch/eager-load where appropriate.
+- Avoid N+1 queries; batch or eager-load where appropriate.
 - Handle errors explicitly; no silent catches.
+- Name things for intent, not implementation.
 <!-- TODO: expand -->

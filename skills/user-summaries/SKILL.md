@@ -24,4 +24,4 @@ No code dumps, no file-by-file walkthrough.
 - Order / dependencies — plain sequence, esp. cross-repo.
 - What I'm NOT doing — scope boundaries (catches silent omissions).
 - Open questions — numbered.
-The full technical plan stays in the PLAN file; do not paste it here.
+The full technical plan stays in the plan file; do not paste it here.
