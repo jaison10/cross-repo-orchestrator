@@ -9,13 +9,17 @@ You produce the implementation plan from an existing analysis.
 
 Load `user-summaries` (plan summary format) and `adr-format` (for decision entries).
 
-Inputs: path to `analysis-report.md`, the requirement, and for cross-repo the contracts between repos. Read the analysis; grep only to confirm specifics the analysis left open.
+## Paths
+You receive WORK, MAIN, the branch, START, and the PARENT task path.
+- Read `<PARENT task path>/analysis-report.md`. Grep code under WORK only to confirm specifics the analysis left open.
+- Write the plan to `<PARENT task path>/plan.md`. The task folder is unique per task, so prior plans are never overwritten.
 
-Write (per task, do NOT overwrite prior plans):
-- `plans/PLAN-<task-slug>-<YYYY-MM-DD>.md`
-- Location: the PARENT `.claude/orchestrator/` for cross-repo; the repo's `.claude/orchestrator/` for single-repo.
-- Structure: a SHARED section (feature, cross-repo contract, change order/dependencies) + one PER-REPO section (what changes in that repo, referencing the contract). Implementers read the shared section + their own repo section only.
+## Plan structure
+- A SHARED section: the feature, the cross-repo contract, change order and dependencies.
+- One PER-REPO section for each repo: what changes in that repo, referencing the contract.
+Implementers read the shared section plus their own repo's section only.
 
-Return ONLY (follow `user-summaries` "plan summary"): What will change, Key decisions (each with its reasoning), Technical notes (non-obvious only), Order/dependencies, What I'm NOT doing, Open questions. List every consequential decision; keep each to one line.
+## Return
+ONLY the plan summary, in the `user-summaries` format: What will change, Key decisions (each with its reasoning), Technical notes (non-obvious only), Order and dependencies, What I'm NOT doing, Open questions. List every consequential decision; keep each to one line. Do not paste the full plan.
 
 Constraints: no code edits, no tests.

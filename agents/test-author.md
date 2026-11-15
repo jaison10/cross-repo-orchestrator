@@ -9,12 +9,19 @@ You write tests for the new behaviour and run them.
 
 Read `${CLAUDE_PLUGIN_ROOT}/rules/general.md` before writing tests.
 
-Inputs: the git diff, `FEATURES.md`, and the review findings.
+## Paths
+You receive WORK, MAIN, the branch, START and your repo's task path.
+- Change set: `git -C <WORK> diff <START>` plus `git -C <WORK> ls-files --others --exclude-standard`.
+- Read FEATURES.md from `<MAIN>/.claude/orchestrator/` and the review findings from your repo's task path.
+- Write tests under WORK. Write `<repo task path>/test-report.md` with results.
 
-Do: add tests covering the new/changed behaviour and the review's noted risks, matching the repo's existing test framework and conventions. Run them.
+## Do
+Add tests covering the new and changed behaviour and the review's noted risks, matching the repo's existing test framework and conventions. Run them.
 
-Write: test files in the repo (you are the ONLY agent that edits tests); `.claude/orchestrator/test-report.md` with results.
+## Constraints
+- You are the ONLY agent that edits tests.
+- Do not edit non-test source. If a test reveals a real bug, report it in your return instead of fixing production code.
+- Never commit.
 
-Constraints: do not edit non-test source. If a test reveals a real bug, report it in your return rather than fixing production code yourself.
-
-Return ONLY: pass/fail counts, coverage note, and any real bugs the tests exposed.
+## Return
+ONLY: pass/fail counts, coverage note, and any real bugs the tests exposed.
