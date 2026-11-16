@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orchestrator gate</title>
+<style>
+:root {
+  --bg: #f5f6f8; --panel: #ffffff; --ink: #171a21; --mute: #5a6272; --line: #dfe3ea;
+  --accent: #2755e0; --accent-ink: #ffffff; --accent-soft: #e8eefd;
+  --ok: #157347; --ok-soft: #e3f4ea; --warn: #a65a06; --warn-soft: #fdf0dc; --bad: #b3261e; --code: #eef0f4;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1218; --panel: #171b23; --ink: #e8ebf1; --mute: #98a1b3; --line: #29303c;
+    --accent: #7c9cff; --accent-ink: #0b1020; --accent-soft: #1c2640;
+    --ok: #5fcf93; --ok-soft: #14291f; --warn: #f0b35a; --warn-soft: #2d2412; --bad: #ff8a80; --code: #222834;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1218; --panel: #171b23; --ink: #e8ebf1; --mute: #98a1b3; --line: #29303c;
+  --accent: #7c9cff; --accent-ink: #0b1020; --accent-soft: #1c2640;
+  --ok: #5fcf93; --ok-soft: #14291f; --warn: #f0b35a; --warn-soft: #2d2412; --bad: #ff8a80; --code: #222834;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 64px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); }
+.bar { max-width: 960px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.bar h1 { font-size: 16px; margin: 0; font-weight: 650; }
+.meta { color: var(--mute); font-size: 13px; }
+nav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+nav a { color: var(--mute); text-decoration: none; padding: 4px 10px; border-radius: 999px; font-size: 13px; }
+nav a:hover { background: var(--accent-soft); color: var(--accent); }
+main { max-width: 960px; margin: 0 auto; padding: 20px 16px 140px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; }
+section > h2 { margin: 0 0 12px; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--mute); font-weight: 650; display: flex; align-items: center; gap: 10px; }
+section > h2 .count { font-size: 12px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 1px 9px; text-transform: none; letter-spacing: 0; }
+.md h1, .md h2, .md h3 { font-size: 15px; margin: 14px 0 6px; }
+.md > :first-child { margin-top: 0; }
+.md p { margin: 6px 0; }
+.md ul, .md ol { margin: 6px 0; padding-left: 22px; }
+.md li { margin: 3px 0; }
+.md code { background: var(--code); padding: 1px 5px; border-radius: 4px; font: 13px ui-monospace, Consolas, monospace; }
+.md pre { background: var(--code); padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
+.md pre code { padding: 0; background: none; }
+.md blockquote { margin: 8px 0; padding: 2px 12px; border-left: 3px solid var(--line); color: var(--mute); }
+.md a { color: var(--accent); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-size: 12px; color: var(--mute); font-weight: 600; padding: 0 8px 8px; }
+td { padding: 10px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+td.name b { display: block; }
+td.name span { color: var(--mute); font-size: 12px; word-break: break-all; }
+.tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--code); color: var(--mute); }
+.tag.dirty { background: var(--warn-soft); color: var(--warn); }
+.tag.clean { background: var(--ok-soft); color: var(--ok); }
+.tag.rec { background: var(--ok-soft); color: var(--ok); margin-left: 6px; }
+.q { border-top: 1px solid var(--line); padding: 14px 0 4px; }
+.q:first-of-type { border-top: 0; padding-top: 0; }
+.q h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.q .why { color: var(--mute); font-size: 13px; margin: 0 0 8px; }
+.q .done { color: var(--ok); font-size: 12px; margin-left: 8px; }
+.opts { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+button, select, textarea, input[type=text] { font: inherit; color: inherit; }
+.opt { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.opt:hover { border-color: var(--accent); }
+.opt[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+textarea, input[type=text], select { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+textarea { min-height: 64px; resize: vertical; }
+textarea:focus, input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+td select { width: auto; min-width: 160px; }
+.thread { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.msg { padding: 8px 12px; border-radius: 10px; max-width: 85%; white-space: pre-wrap; }
+.msg small { display: block; color: var(--mute); font-size: 11px; margin-bottom: 2px; }
+.msg.user { align-self: flex-end; background: var(--accent-soft); }
+.msg.claude { align-self: flex-start; background: var(--code); }
+.msg.pending { opacity: .7; font-style: italic; }
+.row { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+footer { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); z-index: 5; }
+footer .bar { justify-content: flex-end; }
+#status { margin-right: auto; font-size: 13px; color: var(--mute); }
+#status.bad { color: var(--bad); }
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 8px 16px; cursor: pointer; font-weight: 550; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.banner { border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; background: var(--accent-soft); color: var(--ink); border: 1px solid var(--accent); }
+.banner.ok { background: var(--ok-soft); border-color: var(--ok); }
+.banner.warn { background: var(--warn-soft); border-color: var(--warn); }
+.links a { color: var(--accent); margin-right: 14px; font-size: 13px; }
+label.inline { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-weight: 600; margin-bottom: 4px; }
+.field small { color: var(--mute); display: block; margin-top: 3px; }
+.theme { background: none; border: 0; cursor: pointer; font-size: 16px; color: var(--mute); }
+@media (max-width: 640px) { th:nth-child(3), td:nth-child(3) { display: none; } .msg { max-width: 100%; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1 id="title">Orchestrator</h1>
+    <span class="meta" id="meta"></span>
+    <nav id="nav"></nav>
+    <button class="theme" id="theme" title="Toggle light / dark" aria-label="Toggle theme">&#9788;</button>
+  </div>
+</header>
+<main id="app"><p class="meta">Loading…</p></main>
+<footer id="foot" hidden>
+  <div class="bar">
+    <span id="status"></span>
+    <button class="btn" id="b-console">Answer in console instead</button>
+    <button class="btn" id="b-revise">Request changes</button>
+    <button class="btn primary" id="b-approve">Approve &amp; continue</button>
+  </div>
+</footer>
+
+<script>
+'use strict';
+const $ = (s, el = document) => el.querySelector(s);
+const ref = decodeURIComponent(location.hash.slice(1));
+const base = ref && ref !== 'setup' ? '/api/gate/' + ref.split('/').map(encodeURIComponent).join('/') : null;
+let data = null, lastSig = '', timers = {}, busy = false;
+
+/* ---------- theme (remembered per browser, optional) ---------- */
+try { const t = localStorage.theme; if (t) document.documentElement.dataset.theme = t; } catch {}
+$('#theme').onclick = () => {
+  const dark = document.documentElement.dataset.theme
+    ? document.documentElement.dataset.theme === 'dark'
+    : matchMedia('(prefers-color-scheme: dark)').matches;
+  const next = dark ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.theme = next; } catch {}
+};
+
+/* ---------- helpers ---------- */
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === false || v == null) continue;
+    if (k === 'class') el.className = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (k === 'html') el.innerHTML = v;
+    else if (k in el && k !== 'list') el[k] = v;
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat()) if (kid != null && kid !== false) el.append(kid.nodeType ? kid : document.createTextNode(kid));
+  return el;
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts && { ...opts, headers: { 'Content-Type': 'application/json' } });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || res.statusText);
+  return body;
+}
+
+function say(text, bad) { const s = $('#status'); s.textContent = text || ''; s.className = bad ? 'bad' : ''; }
+
+/* ---------- small, safe markdown (everything is escaped first) ---------- */
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function inline(s) {
+  return esc(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+}
+function md(src) {
+  const lines = String(src || '').replace(/\r\n?/g, '\n').split('\n');
+  let out = '', list = null, para = [], fence = null;
+  const endPara = () => { if (para.length) out += '<p>' + inline(para.join(' ')) + '</p>'; para = []; };
+  const endList = () => { if (list) out += '</' + list + '>'; list = null; };
+  for (const line of lines) {
+    if (fence !== null) {
+      if (/^```/.test(line)) { out += '<pre><code>' + esc(fence.join('\n')) + '</code></pre>'; fence = null; } else fence.push(line);
+      continue;
+    }
+    let m;
+    if (/^```/.test(line)) { endPara(); endList(); fence = []; }
+    else if (!line.trim()) { endPara(); endList(); }
+    else if ((m = /^(#{1,4})\s+(.*)$/.exec(line))) { endPara(); endList(); out += `<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`; }
+    else if ((m = /^\s*[-*]\s+(.*)$/.exec(line))) { endPara(); if (list !== 'ul') { endList(); out += '<ul>'; list = 'ul'; } out += '<li>' + inline(m[1]) + '</li>'; }
+    else if ((m = /^\s*\d+[.)]\s+(.*)$/.exec(line))) { endPara(); if (list !== 'ol') { endList(); out += '<ol>'; list = 'ol'; } out += '<li>' + inline(m[1]) + '</li>'; }
+    else if ((m = /^>\s?(.*)$/.exec(line))) { endPara(); endList(); out += '<blockquote>' + inline(m[1]) + '</blockquote>'; }
+    else { endList(); para.push(line.trim()); }
+  }
+  if (fence !== null) out += '<pre><code>' + esc(fence.join('\n')) + '</code></pre>';
+  endPara(); endList();
+  return out;
+}
+const mdEl = src => h('div', { class: 'md', html: md(src) });
+
+/* ---------- saving (one small patch at a time, debounced for typing) ---------- */
+async function patch(p) {
+  const r = await api(base + '/state', { method: 'POST', body: JSON.stringify(p) });
+  data.state = r.state;
+  refreshActions();
+  return r;
+}
+function save(key, p, delay = 0) {
+  clearTimeout(timers[key]);
+  timers[key] = setTimeout(() => patch(p).catch(e => say(e.message, true)), delay);
+}
+function flush() { for (const k of Object.keys(timers)) { clearTimeout(timers[k]); } }
+
+/* ---------- derived state ---------- */
+const content = () => data.content;
+const state = () => data.state;
+const round = () => content().round || 1;
+const submitted = () => state().submitted && state().submitted.round === round() ? state().submitted : null;
+const answerOf = id => state().answers[id] || { choice: '', text: '' };
+const repoOn = r => (state().repos[r.id] && 'include' in state().repos[r.id]) ? state().repos[r.id].include : r.include !== false;
+const dirtyChoice = r => (state().repos[r.id] || {}).dirtyChoice || '';
+
+function problems() {
+  const c = content(), out = [];
+  const open = (c.questions || []).filter(q => { const a = answerOf(q.id); return !a.choice && !(a.text || '').trim(); });
+  if (open.length) out.push(`${open.length} question${open.length > 1 ? 's' : ''} left to answer`);
+  if ((c.repos || []).length) {
+    const on = c.repos.filter(repoOn);
+    if (!on.length) out.push('select at least one repo');
+    for (const r of on) if (r.dirty && !dirtyChoice(r)) out.push(`choose what to do with uncommitted changes in ${r.name || r.id}`);
+    if (c.needsWorktreeRoot && on.some(r => dirtyChoice(r) === 'worktree') && !(state().worktreeRoot || '').trim()) out.push('enter the worktree folder');
+  }
+  return out;
+}
+
+/* ---------- gate view ---------- */
+function sectionNav() {
+  const nav = $('#nav'); nav.replaceChildren();
+  for (const s of document.querySelectorAll('main section[id]')) nav.append(h('a', { href: '#' + ref, onclick: e => { e.preventDefault(); s.scrollIntoView({ behavior: 'smooth' }); } }, s.dataset.label));
+}
+
+function render() {
+  const c = content(), locked = !!submitted(), app = $('#app');
+  document.title = (c.title || 'Gate') + ' — Orchestrator';
+  $('#title').textContent = c.title || 'Orchestrator gate';
+  $('#meta').textContent = [c.route, c.mode, 'round ' + round()].filter(Boolean).join(' · ');
+  app.replaceChildren();
+
+  if (locked) app.append(banner());
+
+  if (c.understanding) app.append(section('understanding', 'What Claude understood', mdEl(c.understanding)));
+
+  if ((c.repos || []).length) app.append(section('repos', 'Effective repos', reposTable(c, locked), null, c.repos.length));
+
+  if (c.plan) {
+    const links = (c.reports || []).map(n => h('a', { href: `${base}/report/${encodeURIComponent(n)}`, target: '_blank', rel: 'noopener' }, 'Open ' + n));
+    app.append(section('plan', 'The plan', mdEl(c.plan), links.length ? h('div', { class: 'links' }, links) : null));
+  } else if ((c.reports || []).length) {
+    app.append(section('plan', 'Reports', h('div', { class: 'links' }, c.reports.map(n => h('a', { href: `${base}/report/${encodeURIComponent(n)}`, target: '_blank', rel: 'noopener' }, n)))));
+  }
+
+  if ((c.questions || []).length) app.append(section('questions', 'Questions', c.questions.map((q, i) => question(q, i, locked)), null, c.questions.length));
+
+  app.append(discuss(locked));
+  app.append(concerns(locked));
+  $('#foot').hidden = false;
+  sectionNav();
+  refreshActions();
+}
+
+function banner() {
+  const s = submitted();
+  if (s.action === 'approve') return h('div', { class: 'banner ok' }, 'Approved. You can return to the terminal; Claude is continuing.');
+  if (s.action === 'console') return h('div', { class: 'banner warn' }, 'Switched to the terminal. Claude will ask you there.');
+  if (s.action === 'ask') return h('div', { class: 'banner' }, 'Question sent. Claude is working on it; this page updates by itself.');
+  return h('div', { class: 'banner' }, 'Changes sent. Claude is revising; this page updates by itself with the next round.');
+}
+
+function section(id, label, body, extra, count) {
+  return h('section', { id, 'data-label': label.replace(/^What Claude understood$/, 'Understanding') },
+    h('h2', null, label, count ? h('span', { class: 'count' }, String(count)) : null), body, extra);
+}
+
+function reposTable(c, locked) {
+  const needRoot = c.needsWorktreeRoot && c.repos.some(r => repoOn(r) && dirtyChoice(r) === 'worktree');
+  const rows = c.repos.map(r => h('tr', null,
+    h('td', null, h('input', { type: 'checkbox', checked: repoOn(r), disabled: locked, 'aria-label': 'Include ' + (r.name || r.id),
+      onchange: e => { save('repo-' + r.id, { repo: { id: r.id, include: e.target.checked } }); state().repos[r.id] = { ...(state().repos[r.id] || {}), include: e.target.checked }; render(); } })),
+    h('td', { class: 'name' }, h('b', null, r.name || r.id), h('span', null, r.path || '')),
+    h('td', null, r.reason || ''),
+    h('td', null, r.branch ? h('code', null, r.branch) : '', h('br'), h('span', { class: 'tag ' + (r.dirty ? 'dirty' : 'clean') }, r.dirty ? 'uncommitted changes' : 'clean'),
+      r.risk ? h('div', { class: 'meta' }, 'Risk: ' + r.risk) : null,
+      r.dirty && (r.dirtyFiles || []).length ? h('details', null, h('summary', { class: 'meta' }, (r.dirtyFiles.length) + ' changed files'), h('div', { class: 'meta' }, r.dirtyFiles.join(', '))) : null),
+    h('td', null, r.dirty && repoOn(r)
+      ? h('select', { disabled: locked, 'aria-label': 'Uncommitted changes in ' + (r.name || r.id),
+          onchange: e => { state().repos[r.id] = { ...(state().repos[r.id] || {}), dirtyChoice: e.target.value || null }; save('repo-d-' + r.id, { repo: { id: r.id, dirtyChoice: e.target.value || null } }); render(); } },
+          h('option', { value: '' }, 'Choose…'),
+          h('option', { value: 'keep', selected: dirtyChoice(r) === 'keep' }, 'Keep changes on the new branch'),
+          h('option', { value: 'stash', selected: dirtyChoice(r) === 'stash' }, 'Stash them, branch clean'),
+          h('option', { value: 'worktree', selected: dirtyChoice(r) === 'worktree' }, 'Worktree, leave them here'))
+      : h('span', { class: 'meta' }, repoOn(r) ? 'branch in place' : 'not included'))));
+  return h('div', null,
+    h('table', null, h('thead', null, h('tr', null, h('th', null, ''), h('th', null, 'Repo'), h('th', null, 'Why'), h('th', null, 'Branch'), h('th', null, 'Action'))), h('tbody', null, rows)),
+    needRoot ? h('div', { class: 'field', style: 'margin-top:14px' },
+      h('label', { for: 'wt' }, 'Worktree folder'),
+      h('input', { id: 'wt', type: 'text', value: state().worktreeRoot || '', disabled: locked, placeholder: 'C:/Users/you/worktrees',
+        oninput: e => { state().worktreeRoot = e.target.value; save('wt', { worktreeRoot: e.target.value }, 500); refreshActions(); } }),
+      h('small', null, 'Where worktrees are created. Saved to your config so you are not asked again.')) : null);
+}
+
+function question(q, i, locked) {
+  const a = answerOf(q.id);
+  const done = a.choice || (a.text || '').trim();
+  const typed = h('textarea', { rows: 2, disabled: locked, placeholder: (q.options || []).length ? 'Or write your own answer / add a comment…' : 'Your answer…', value: a.text || '',
+    oninput: e => { const cur = answerOf(q.id); state().answers[q.id] = { choice: cur.choice || '', text: e.target.value }; save('a-' + q.id, { answer: { id: q.id, choice: cur.choice || '', text: e.target.value } }, 600); refreshActions(); } });
+  const setChoice = opt => {
+    const cur = answerOf(q.id), choice = cur.choice === opt ? '' : opt;
+    state().answers[q.id] = { choice, text: cur.text || '' };
+    save('a-' + q.id, { answer: { id: q.id, choice, text: cur.text || '' } });
+    render();
+  };
+  return h('div', { class: 'q' },
+    h('h3', null, `${i + 1}. ${q.text}`, done ? h('span', { class: 'done' }, '✓ answered') : null),
+    q.why ? h('p', { class: 'why' }, q.why) : null,
+    (q.options || []).length ? h('div', { class: 'opts' }, q.options.map(o =>
+      h('button', { class: 'opt', 'aria-pressed': String(a.choice === o), disabled: locked, onclick: () => setChoice(o) }, o, o === q.recommended ? h('span', { class: 'tag rec' }, 'recommended') : null))) : null,
+    typed);
+}
+
+function discuss(locked) {
+  const c = content(), asked = state().asked || [], thread = c.thread || [];
+  const msgs = [];
+  for (const m of thread.filter(t => !t.to)) msgs.push(h('div', { class: 'msg claude' }, h('small', null, 'Claude'), m.text));
+  for (const a of asked) {
+    msgs.push(h('div', { class: 'msg user' }, h('small', null, 'You'), a.text));
+    const replies = thread.filter(t => t.to === a.id);
+    for (const r of replies) msgs.push(h('div', { class: 'msg claude' }, h('small', null, 'Claude'), r.text));
+    if (!replies.length) msgs.push(h('div', { class: 'msg claude pending' }, 'Waiting for Claude to answer…'));
+  }
+  const box = h('textarea', { rows: 2, id: 'ask', disabled: locked, placeholder: 'Anything unclear or worrying? Ask Claude here.' });
+  const send = h('button', { class: 'btn', disabled: locked, onclick: async () => {
+    const text = box.value.trim(); if (!text) { say('Write a question first.', true); return; }
+    flush(); busy = true;
+    try { await patch({ ask: { text } }); await patch({ submit: { action: 'ask', round: round() } }); say(''); box.value = ''; await load(true); }
+    catch (e) { say(e.message, true); } finally { busy = false; }
+  } }, 'Send question to Claude');
+  return section('discuss', 'Questions for Claude', h('div', null, msgs.length ? h('div', { class: 'thread' }, msgs) : null, box, h('div', { class: 'row' }, send, h('span', { class: 'meta' }, 'Claude answers here without leaving the review.'))));
+}
+
+function concerns(locked) {
+  return section('concerns', 'Concerns or changes',
+    h('div', null,
+      h('textarea', { rows: 3, disabled: locked, placeholder: 'Anything you want changed in the plan or scope? Then choose “Request changes”.', value: state().concerns || '',
+        oninput: e => { state().concerns = e.target.value; save('concerns', { concerns: e.target.value }, 600); } })));
+}
+
+/* ---------- footer actions ---------- */
+function refreshActions() {
+  if (!data || !base) return;
+  const locked = !!submitted(), ps = problems();
+  const approve = $('#b-approve'), revise = $('#b-revise'), cons = $('#b-console');
+  approve.disabled = locked || ps.length > 0;
+  revise.disabled = locked;
+  cons.disabled = locked;
+  approve.title = ps.join('\n');
+  if (!busy) say(locked ? '' : ps[0] ? ps[0] + (ps.length > 1 ? ` (+${ps.length - 1} more)` : '') : 'Ready to approve.');
+}
+async function submit(action) {
+  busy = true; say('Sending…');
+  try { flush(); await patch({ submit: { action, round: round() } }); busy = false; render(); say(''); }
+  catch (e) { busy = false; say(e.message, true); }
+}
+$('#b-approve').onclick = () => submit('approve');
+$('#b-revise').onclick = () => submit('revise');
+$('#b-console').onclick = () => submit('console');
+
+/* ---------- loading and polling ---------- */
+function signature() {
+  const c = content();
+  return JSON.stringify([c.round, (c.thread || []).length, (c.questions || []).map(q => q.id), (c.repos || []).map(r => r.id), (c.plan || '').length, (c.understanding || '').length, !!submitted(), (state().asked || []).length]);
+}
+async function load(force) {
+  try {
+    const next = await api(base);
+    if (!force && data && next.version === data.version) return;
+    const typing = document.activeElement && document.activeElement.matches('textarea, input[type=text]');
+    data = next;
+    const sig = signature();
+    if (sig !== lastSig && !(typing && !force && !submitted() && round() === JSON.parse(lastSig || '[null]')[0])) { lastSig = sig; render(); }
+    else refreshActions();
+  } catch (e) {
+    if (!data) $('#app').replaceChildren(h('div', { class: 'banner warn' }, 'Could not load this gate: ' + e.message));
+  }
+}
+
+/* ---------- first-run setup ---------- */
+async function setup() {
+  document.title = 'Setup — Orchestrator'; $('#title').textContent = 'Orchestrator setup';
+  const cfg = await api('/api/config');
+  const user = h('input', { type: 'text', id: 'u', value: cfg.username || '', placeholder: 'e.g. jdsouza', autocomplete: 'off' });
+  const wt = h('input', { type: 'text', id: 'w', value: cfg['worktree-root'] || '', placeholder: 'C:/Users/you/worktrees (optional)' });
+  const ui = h('select', { id: 'ui' }, h('option', { value: 'browser', selected: cfg.ui !== 'console' }, 'Browser (recommended)'), h('option', { value: 'console', selected: cfg.ui === 'console' }, 'Terminal only'));
+  const msg = h('p', { class: 'meta' });
+  $('#app').replaceChildren(
+    h('section', null, h('h2', null, 'Your settings'),
+      h('p', { class: 'meta' }, 'Saved to ~/.orchestrator/config.json. You can edit the file later.'),
+      h('div', { class: 'field' }, h('label', { for: 'u' }, 'Branch username'), user, h('small', null, 'Used in branch names: username/feat/task. Letters, digits, . _ - / only; no spaces.')),
+      h('div', { class: 'field' }, h('label', { for: 'w' }, 'Worktree folder'), wt, h('small', null, 'Only needed if you choose worktrees for repos with uncommitted changes.')),
+      h('div', { class: 'field' }, h('label', { for: 'ui' }, 'Where to answer questions'), ui),
+      h('button', { class: 'btn primary', onclick: async () => {
+        try { await api('/api/config', { method: 'POST', body: JSON.stringify({ username: user.value, 'worktree-root': wt.value, ui: ui.value }) }); msg.textContent = 'Saved. You can return to the terminal.'; msg.className = 'banner ok'; }
+        catch (e) { msg.textContent = e.message; msg.className = 'banner warn'; }
+      } }, 'Save'), msg));
+}
+
+(async () => {
+  if (ref === 'setup') return setup();
+  if (!base) { $('#app').replaceChildren(h('div', { class: 'banner warn' }, 'No gate selected. Open the URL printed by `orchestrator-gate open`.')); return; }
+  await load(true);
+  setInterval(() => { if (!busy) load(); }, 2000);
+})();
+</script>
+</body>
+</html>

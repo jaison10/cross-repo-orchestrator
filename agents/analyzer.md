@@ -25,6 +25,6 @@ You receive WORK (code folder, on the task branch), MAIN (main repo folder), the
 - `<MAIN>/.claude/orchestrator/ARCHITECTURE.md` and `FEATURES.md`: reusable cache byproduct, only if missing or stale.
 
 ## Return
-ONLY the understanding report, in the `user-summaries` format: Goal, Scope, Key findings, Assumptions, Open questions. Keep it to one screen. If the task turns out larger or deeper than its route assumed, set an escalation flag in your return and say why.
+ONLY the understanding report, in the `user-summaries` format: Goal, Scope, Key findings, Assumptions, Open questions. Keep it to one screen. End with the `questions` block from `user-summaries` (ids `a1`, `a2`, ...). If the task turns out larger or deeper than its route assumed, set an escalation flag in your return and say why.
 
 Constraints: you do not write a plan, do not edit source, do not write tests.

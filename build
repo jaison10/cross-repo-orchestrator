@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Builds the committed orchestrator-gate binaries (self-contained, trimmed, single file) for the three supported platforms.
+# Needs the .NET SDK (10.0+). Users of the plugin need nothing: the binaries carry the runtime.
+#   ./build            test, then build all three
+#   SHA=abc1234 ./build   override the commit stamp where git cannot run
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+sha=${SHA:-$(git -C "$here" rev-parse --short HEAD 2>/dev/null || echo local)}
+base=$(grep -o '"version": *"[^"]*"' "$here/.claude-plugin/plugin.json" | head -1 | cut -d'"' -f4)
+ver="$base+$sha"   # the server restarts itself when this changes
+cd "$here/src"
+dotnet test OrchestratorGate.Tests -c Release
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+for rid in win-x64 osx-arm64 linux-x64; do
+  exe=orchestrator-gate; [ "$rid" = win-x64 ] && exe=orchestrator-gate.exe
+  out="$here/skills/browser-gate/dist/$rid"
+  dotnet publish OrchestratorGate/OrchestratorGate.csproj -c Release -r "$rid" --self-contained \
+    -p:PublishSingleFile=true -p:PublishTrimmed=true -p:EnableCompressionInSingleFile=true \
+    -p:DebugType=none -p:IncludeSourceRevisionInInformationalVersion=false -p:InformationalVersion="$ver" -o "$work/$rid" >/dev/null
+  mkdir -p "$out"
+  cp "$work/$rid/$exe" "$out/$exe"
+  echo "built $out/$exe ($ver)"
+done
+# Windows cannot set the executable bit; record it in git so macOS and Linux checkouts can run the binaries.
+if git -C "$here" rev-parse --git-dir >/dev/null 2>&1; then
+  git -C "$here" add --chmod=+x skills/browser-gate/dist/osx-arm64/orchestrator-gate skills/browser-gate/dist/linux-x64/orchestrator-gate
+fi

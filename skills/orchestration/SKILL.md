@@ -32,6 +32,7 @@ CENTRAL = `~/.orchestrator/` (expand `~` to an absolute path yourself). Within a
 
 Whole-feature artifacts, under the PARENT-key (single-repo: the one key):
 - `<CENTRAL>/<parent-key>/tasks/<task-slug>/` holds analysis-report.md, plan.md, verification-report.md
+- `<CENTRAL>/<parent-key>/tasks/<task-slug>/gates/` holds the browser gates (`gate-N.json` written by you, `gate-N.state.json` written by the page). See `browser-gate`. The reports above stay the source the agents read; the gate files are the record of what the user answered.
 
 Per-repo artifacts, under that repo's REPO-key:
 - `<CENTRAL>/<repo-key>/tasks/<task-slug>/` holds review-report.md, test-report.md
@@ -59,10 +60,12 @@ In-repo, durable:
 - Single-repo: skip 0b. Branch prep still runs on bug-fix and feature.
 
 ## Dispatch order and gates
+Gates 1 and 2 are shown through the `browser-gate` skill when it is usable (user config `ui` is `browser`, not a remote session, server starts), so the user can read the understanding, repos, plan and questions in a page, answer there, ask their own questions and raise concerns. Your run resumes when they submit. If it is not usable, run the gate in the console exactly as described below. Gates 3 and 4 are always console. Questions from the analyzer and planner arrive as a structured block (see `user-summaries`); in the console, print them numbered as before.
+
 1. (cross-repo) discovery.
 2. Branch prep, per the `branch-prep` skill, on bug-fix and feature routes. Cross-repo: scan the proposed repo set, then show ONE combined Gate 1 screen (repo set plus branch actions). Single-repo: the same flow with a one-row table. Analysis route: Gate 1 confirms the repo set only.
 3. analyzer (per repo). Show its report. Analysis route: STOP here.
-4. planner. GATE 2: the user approves the plan and answers open questions. Append the answers and `## Approved: <timestamp>` to plan.md.
+4. planner. GATE 2: the user approves the plan and answers open questions. Append the answers and `## Approved: <timestamp>` to plan.md. In the browser, one page carries the understanding, the plan and the questions of both the analyzer and the planner; "revise" re-runs the planner and "ask" is answered by a subagent, each as a new round of the same gate.
 5. implementer (one per repo).
 6. verifier. Feature route: GATE 3, start review?
 7. code-reviewer (per repo). Feature route: GATE 4, write tests?
@@ -71,7 +74,9 @@ In-repo, durable:
 10. End-of-run reminders from `branch-prep`.
 
 ## Mid-run changes
-At a gate: edit the relevant file and re-present. Mid-subagent: the user interrupts, you amend inputs and re-dispatch. After a later stage: edit the upstream file and re-run from that stage forward.
+At a gate: edit the relevant file and re-present (in the browser: a new round of the same gate). Mid-subagent: the user interrupts, you amend inputs and re-dispatch. After a later stage: edit the upstream file and re-run from that stage forward.
 
 ## Escalation
 If an agent returns an escalation flag (the task is bigger or deeper than its route assumed), tell the user and offer to switch route rather than continuing on the light path.
+
+DUMMY ADDITIONAL ADDED

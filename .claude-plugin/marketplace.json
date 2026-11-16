@@ -1,6 +1,6 @@
 {
   "name": "repo-orchestrator-marketplace",
-  "owner": { "name": "YOUR_NAME" },
+  "owner": { "name": "Jaison D Souza B" },
   "plugins": [
     { "name": "repo-orchestrator", "source": "./", "description": "Routed multi-repo orchestrator." }
   ]

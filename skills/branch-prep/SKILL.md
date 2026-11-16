@@ -19,8 +19,10 @@ User-level, `~/.orchestrator/config.json`:
 
     { "username": "jdsouza", "worktree-root": "C:/Users/jdsouza/Red/worktrees" }
 
-- Missing username: ask once, validate, then offer to write the file. Valid means git-ref-safe: no spaces, no `..`, no leading `-`. Re-ask if invalid.
-- `worktree-root` is asked only when the user first picks the Worktree option.
+The file is optional: it does not exist until something needs it, and the browser-gate tool has other keys with defaults (`ui`, `port`, `browser`, `idleMinutes`). Read the effective config with `orchestrator-gate config` (see `browser-gate`).
+
+- Missing username: with the browser gate in use, run `orchestrator-gate setup` (see `browser-gate`, section "First run"); otherwise ask once in the console, then write it with `orchestrator-gate set username <value>`. Valid means git-ref-safe: no spaces, no `..`, no leading `-`. The tool refuses invalid names; re-ask.
+- `worktree-root` is asked only when the user first picks the Worktree option. Save it with `orchestrator-gate set worktree-root <folder>`.
 
 Team-level, a `## Branching` block in the repo's CLAUDE.md (tracked, team-owned):
 
@@ -53,6 +55,7 @@ Show the new branch name, then one table: Repo | Current branch | Uncommitted | 
 - Several dirty repos: ask once whether to apply one choice to all or choose per repo.
 - Never decide for a DIRTY repo. If the user says "stop", abort everything.
 - Cross-repo: this screen is merged with Gate 1. Scan the proposed repo set after discovery, then show repo-set confirmation and branch actions together.
+- Browser gate: the table becomes the Gate 1 page. Put each repo in `repos[]` (`name`, `path`, `branch`, `dirty`, `dirtyFiles`, `risk`, the discovery reason) and read the user's choices from `state.repos[<id>].include` and `.dirtyChoice` (`keep`, `stash`, `worktree`). The rules above do not change: BLOCKED is reported in the console and stops the run, a DIRTY repo is never decided for the user, and nothing executes (section 5) before the page is approved.
 
 ## 5. Execute (only after confirmation)
 START is `<remote>/<base>`, or the local base if the user chose that.
