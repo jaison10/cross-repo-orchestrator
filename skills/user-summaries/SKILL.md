@@ -17,6 +17,19 @@ Rule: completeness of DECISIONS, brevity of EXPLANATION. List every consequentia
 - Open questions — genuine blockers only, numbered.
 No code dumps, no file-by-file walkthrough.
 
+## Questions block (analyzer and planner)
+After the summary, end the return with the open questions as a fenced block labelled `questions` holding a JSON array. The orchestrator shows them as answerable cards in the browser gate, or numbered in the console.
+
+    ```questions
+    [{"id": "a1", "text": "Allow partial refunds?", "why": "Changes the schema.", "options": ["Full only", "Partial too"], "recommended": "Full only"}]
+    ```
+
+- `id`: unique and short. The analyzer uses `a1`, `a2`, ...; the planner uses `p1`, `p2`, ...
+- `text`: the question, one sentence. `why`: one line on what it changes. Both required in spirit; `why` may be omitted.
+- `options`: 2 to 4 short answers when the question has a closed set; leave it out for open questions. `recommended` must be one of `options`.
+- Same bar as "Open questions" above: genuine blockers only. No questions, no block (write `[]`).
+- Keep the numbered "Open questions" list in the summary too; the block is the machine-readable twin.
+
 ## Plan summary (planner) — plain, human-readable
 - What will change — 3–6 plain bullets.
 - Key decisions — each as: decision + why (the trade-off).
