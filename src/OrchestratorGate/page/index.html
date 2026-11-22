@@ -94,6 +94,37 @@ label.inline { display: flex; gap: 8px; align-items: center; cursor: pointer; }
 .field small { color: var(--mute); display: block; margin-top: 3px; }
 .theme { background: none; border: 0; cursor: pointer; font-size: 16px; color: var(--mute); }
 @media (max-width: 640px) { th:nth-child(3), td:nth-child(3) { display: none; } .msg { max-width: 100%; } }
+
+/* ---------- report view (analysis, standalone reports) ---------- */
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+.toolbar .btn { padding: 5px 12px; font-size: 13px; }
+.btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+section.tldr { border-left: 4px solid var(--accent); background: var(--accent-soft); }
+section.tldr .md p { font-size: 16px; font-weight: 550; }
+section.tier-detail { display: none; }
+body.show-detail section.tier-detail { display: block; }
+section.rep > details > summary { cursor: pointer; list-style: none; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--mute); font-weight: 650; }
+section.rep > details > summary::-webkit-details-marker { display: none; }
+section.rep > details > summary::before { content: '\25B8'; display: inline-block; width: 1.3em; transition: transform .15s; }
+section.rep > details[open] > summary::before { transform: rotate(90deg); }
+section.rep > details > .md { margin-top: 12px; }
+.md table { margin: 8px 0; }
+.md th { padding-top: 0; }
+.diagram { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: var(--bg); overflow-x: auto; text-align: center; }
+.diagram svg { max-width: 100%; height: auto; }
+.diagram pre.fallback { text-align: left; margin: 0; }
+.diagram .note { color: var(--warn); font-size: 12px; text-align: left; margin-bottom: 6px; }
+.dtools { display: flex; gap: 6px; justify-content: flex-end; margin-bottom: 6px; }
+.dtools button, .modal button { font-size: 12px; padding: 3px 10px; border: 1px solid var(--line); background: var(--panel); border-radius: 6px; cursor: pointer; }
+.dtools button:hover, .modal button:hover { border-color: var(--accent); }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 20; display: flex; flex-direction: column; }
+.modal .mbar { display: flex; gap: 8px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); align-items: center; }
+.modal .mbody { flex: 1; overflow: auto; background: var(--panel); padding: 20px; }
+.modal .mbody svg { max-width: none; height: auto; }
+@media print {
+  header, footer, .toolbar, .dtools, #discuss { display: none !important; }
+  main { padding: 0; } section { break-inside: avoid; } section.tier-detail { display: block; }
+}
 </style>
 </head>
 <body>
@@ -131,7 +162,11 @@ $('#theme').onclick = () => {
   const next = dark ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
   try { localStorage.theme = next; } catch {}
+  if (data && content().view === 'report') render();   // diagrams re-draw in the new theme
 };
+const isDark = () => document.documentElement.dataset.theme
+  ? document.documentElement.dataset.theme === 'dark'
+  : matchMedia('(prefers-color-scheme: dark)').matches;
 
 /* ---------- helpers ---------- */
 function h(tag, attrs, ...kids) {
@@ -168,16 +203,30 @@ function inline(s) {
 }
 function md(src) {
   const lines = String(src || '').replace(/\r\n?/g, '\n').split('\n');
-  let out = '', list = null, para = [], fence = null;
+  let out = '', list = null, para = [], fence = null, lang = '', table = null;
   const endPara = () => { if (para.length) out += '<p>' + inline(para.join(' ')) + '</p>'; para = []; };
   const endList = () => { if (list) out += '</' + list + '>'; list = null; };
+  const endFence = () => {
+    const code = fence.join('\n');
+    out += lang === 'mermaid'
+      ? `<div class="diagram" data-src="${esc(code)}"><pre class="fallback"><code>${esc(code)}</code></pre></div>`
+      : '<pre><code>' + esc(code) + '</code></pre>';
+    fence = null;
+  };
+  const endTable = () => {
+    if (!table) return;
+    const cells = r => r.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+    const rows = table.map(cells), sep = rows.length > 1 && rows[1].every(c => /^:?-+:?$/.test(c));
+    const row = (r, tag) => '<tr>' + r.map(c => `<${tag}>${inline(c)}</${tag}>`).join('') + '</tr>';
+    out += '<table>' + (sep ? '<thead>' + row(rows[0], 'th') + '</thead>' : '') + '<tbody>' + rows.slice(sep ? 2 : 0).map(r => row(r, 'td')).join('') + '</tbody></table>';
+    table = null;
+  };
   for (const line of lines) {
-    if (fence !== null) {
-      if (/^```/.test(line)) { out += '<pre><code>' + esc(fence.join('\n')) + '</code></pre>'; fence = null; } else fence.push(line);
-      continue;
-    }
+    if (fence !== null) { if (/^```/.test(line)) endFence(); else fence.push(line); continue; }
+    if (table && !/^\s*\|/.test(line)) endTable();
     let m;
-    if (/^```/.test(line)) { endPara(); endList(); fence = []; }
+    if ((m = /^```(\w*)/.exec(line))) { endPara(); endList(); fence = []; lang = m[1].toLowerCase(); }
+    else if (/^\s*\|/.test(line)) { endPara(); endList(); (table ||= []).push(line); }
     else if (!line.trim()) { endPara(); endList(); }
     else if ((m = /^(#{1,4})\s+(.*)$/.exec(line))) { endPara(); endList(); out += `<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`; }
     else if ((m = /^\s*[-*]\s+(.*)$/.exec(line))) { endPara(); if (list !== 'ul') { endList(); out += '<ul>'; list = 'ul'; } out += '<li>' + inline(m[1]) + '</li>'; }
@@ -185,8 +234,8 @@ function md(src) {
     else if ((m = /^>\s?(.*)$/.exec(line))) { endPara(); endList(); out += '<blockquote>' + inline(m[1]) + '</blockquote>'; }
     else { endList(); para.push(line.trim()); }
   }
-  if (fence !== null) out += '<pre><code>' + esc(fence.join('\n')) + '</code></pre>';
-  endPara(); endList();
+  if (fence !== null) endFence();
+  endTable(); endPara(); endList();
   return out;
 }
 const mdEl = src => h('div', { class: 'md', html: md(src) });
@@ -215,6 +264,7 @@ const dirtyChoice = r => (state().repos[r.id] || {}).dirtyChoice || '';
 
 function problems() {
   const c = content(), out = [];
+  if (c.view === 'report') return out;   // read-only report: nothing blocks "Done"
   const open = (c.questions || []).filter(q => { const a = answerOf(q.id); return !a.choice && !(a.text || '').trim(); });
   if (open.length) out.push(`${open.length} question${open.length > 1 ? 's' : ''} left to answer`);
   if ((c.repos || []).length) {
@@ -229,41 +279,143 @@ function problems() {
 /* ---------- gate view ---------- */
 function sectionNav() {
   const nav = $('#nav'); nav.replaceChildren();
-  for (const s of document.querySelectorAll('main section[id]')) nav.append(h('a', { href: '#' + ref, onclick: e => { e.preventDefault(); s.scrollIntoView({ behavior: 'smooth' }); } }, s.dataset.label));
+  for (const s of document.querySelectorAll('main section[id]')) nav.append(h('a', { href: '#' + ref, onclick: e => {
+    e.preventDefault();
+    if (s.classList.contains('tier-detail')) setDetail(true);
+    const d = s.querySelector(':scope > details'); if (d) d.open = true;
+    s.scrollIntoView({ behavior: 'smooth' });
+  } }, s.dataset.label));
 }
 
 function render() {
-  const c = content(), locked = !!submitted(), app = $('#app');
+  const c = content(), locked = !!submitted(), app = $('#app'), report = c.view === 'report';
   document.title = (c.title || 'Gate') + ' — Orchestrator';
   $('#title').textContent = c.title || 'Orchestrator gate';
-  $('#meta').textContent = [c.route, c.mode, 'round ' + round()].filter(Boolean).join(' · ');
+  $('#meta').textContent = (report ? [c.route, c.mode, round() > 1 ? 'round ' + round() : ''] : [c.route, c.mode, 'round ' + round()]).filter(Boolean).join(' · ');
   app.replaceChildren();
 
   if (locked) app.append(banner());
 
-  if (c.understanding) app.append(section('understanding', 'What Claude understood', mdEl(c.understanding)));
+  if (report) reportBody(c, app);
+  else {
+    if (c.understanding) app.append(section('understanding', 'What Claude understood', mdEl(c.understanding)));
 
-  if ((c.repos || []).length) app.append(section('repos', 'Effective repos', reposTable(c, locked), null, c.repos.length));
+    if ((c.repos || []).length) app.append(section('repos', 'Effective repos', reposTable(c, locked), null, c.repos.length));
 
-  if (c.plan) {
-    const links = (c.reports || []).map(n => h('a', { href: `${base}/report/${encodeURIComponent(n)}`, target: '_blank', rel: 'noopener' }, 'Open ' + n));
-    app.append(section('plan', 'The plan', mdEl(c.plan), links.length ? h('div', { class: 'links' }, links) : null));
-  } else if ((c.reports || []).length) {
-    app.append(section('plan', 'Reports', h('div', { class: 'links' }, c.reports.map(n => h('a', { href: `${base}/report/${encodeURIComponent(n)}`, target: '_blank', rel: 'noopener' }, n)))));
+    if (c.plan) {
+      const links = (c.reports || []).map(n => h('a', { href: `${base}/report/${encodeURIComponent(n)}`, target: '_blank', rel: 'noopener' }, 'Open ' + n));
+      app.append(section('plan', 'The plan', mdEl(c.plan), links.length ? h('div', { class: 'links' }, links) : null));
+    } else if ((c.reports || []).length) {
+      app.append(section('plan', 'Reports', h('div', { class: 'links' }, c.reports.map(n => h('a', { href: `${base}/report/${encodeURIComponent(n)}`, target: '_blank', rel: 'noopener' }, n)))));
+    }
   }
 
-  if ((c.questions || []).length) app.append(section('questions', 'Questions', c.questions.map((q, i) => question(q, i, locked)), null, c.questions.length));
+  if ((c.questions || []).length) app.append(section('questions', report ? 'Open questions (optional)' : 'Questions', c.questions.map((q, i) => question(q, i, locked)), null, c.questions.length));
 
   app.append(discuss(locked));
-  app.append(concerns(locked));
+  if (!report) app.append(concerns(locked));
   $('#foot').hidden = false;
   sectionNav();
   refreshActions();
+  if (report) drawDiagrams();
+}
+
+/* ---------- report view: short sections, collapsible, diagrams, reader buttons ---------- */
+let detailOn = false;
+try { detailOn = localStorage.detail === '1'; } catch {}
+document.body.classList.toggle('show-detail', detailOn);
+function setDetail(on) {
+  detailOn = on; document.body.classList.toggle('show-detail', on);
+  try { localStorage.detail = on ? '1' : '0'; } catch {}
+  const b = $('#t-detail'); if (b) b.setAttribute('aria-pressed', String(on));
+}
+
+function splitSections(src) {
+  const out = []; let cur = { title: '', lines: [] }, fence = false;
+  for (const line of String(src || '').replace(/\r\n?/g, '\n').split('\n')) {
+    if (/^```/.test(line)) fence = !fence;
+    const m = !fence && /^##\s+(.*)$/.exec(line);
+    if (m) { out.push(cur); cur = { title: m[1].trim(), lines: [] }; } else cur.lines.push(line);
+  }
+  out.push(cur);
+  return out.filter(s => s.title || s.lines.join('').trim()).map(s => ({ title: s.title, body: s.lines.join('\n').trim() }));
+}
+
+async function copyText(text, what) {
+  try { await navigator.clipboard.writeText(text); }
+  catch { const t = h('textarea', { value: text }); document.body.append(t); t.select(); document.execCommand('copy'); t.remove(); }
+  say(what + ' copied.');
+}
+
+function reportBody(c, app) {
+  const secs = splitSections(c.understanding);
+  const hasDetail = secs.some(s => /^details?\b/i.test(s.title));
+  const tools = h('div', { class: 'toolbar' },
+    h('button', { class: 'btn', onclick: () => document.querySelectorAll('section.rep > details').forEach(d => d.open = true) }, 'Expand all'),
+    h('button', { class: 'btn', onclick: () => document.querySelectorAll('section.rep > details').forEach(d => d.open = false) }, 'Collapse all'),
+    hasDetail ? h('button', { class: 'btn', id: 't-detail', 'aria-pressed': String(detailOn), onclick: () => setDetail(!detailOn) }, 'Show details') : null,
+    h('button', { class: 'btn', onclick: () => copyText(c.understanding || '', 'Report') }, 'Copy as Markdown'),
+    h('button', { class: 'btn', onclick: () => window.print() }, 'Print'));
+  app.append(tools);
+  for (const s of secs) {
+    const tldr = /^tl;?dr\b/i.test(s.title), detail = /^details?\b/i.test(s.title);
+    if (!s.title) { app.append(h('div', { class: 'md' }, mdEl(s.body))); continue; }
+    const slug = s.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section';
+    app.append(h('section', { id: 's-' + slug, class: 'rep' + (tldr ? ' tldr' : '') + (detail ? ' tier-detail' : ''), 'data-label': tldr ? 'TL;DR' : s.title },
+      h('details', { open: true }, h('summary', null, s.title), mdEl(s.body))));
+  }
+  const links = (c.reports || []).map(n => h('a', { href: `${base}/report/${encodeURIComponent(n)}`, target: '_blank', rel: 'noopener' }, 'Open full ' + n));
+  if (links.length) app.append(h('div', { class: 'links' }, links));
+}
+
+let mmLoad = null, mmSeq = 0;
+function loadMermaid() {
+  return mmLoad ||= new Promise((ok, fail) => {
+    const s = document.createElement('script'); s.src = '/assets/mermaid.min.js';
+    s.onload = () => window.mermaid ? ok(window.mermaid) : fail(new Error('mermaid missing'));
+    s.onerror = () => { mmLoad = null; fail(new Error('could not load')); };
+    document.head.append(s);
+  });
+}
+function openDiagram(svgHtml) {
+  let zoom = 1;
+  const body = h('div', { class: 'mbody', html: svgHtml }), svg = () => body.querySelector('svg');
+  const fit = () => { const s = svg(); if (s) { s.removeAttribute('height'); s.style.maxWidth = 'none'; s.style.width = (zoom * 100) + '%'; } };
+  const close = () => { modal.remove(); document.removeEventListener('keydown', esc2); };
+  const esc2 = e => { if (e.key === 'Escape') close(); };
+  const modal = h('div', { class: 'modal', role: 'dialog', 'aria-label': 'Diagram' },
+    h('div', { class: 'mbar' },
+      h('button', { onclick: () => { zoom = Math.max(.25, zoom - .25); fit(); } }, '−'),
+      h('button', { onclick: () => { zoom = Math.min(6, zoom + .25); fit(); } }, '+'),
+      h('button', { onclick: () => { zoom = 1; fit(); } }, 'Fit'),
+      h('button', { style: 'margin-left:auto', onclick: close }, 'Close (Esc)')),
+    body);
+  document.addEventListener('keydown', esc2);
+  document.body.append(modal); fit();
+}
+async function drawDiagrams() {
+  const boxes = [...document.querySelectorAll('.diagram[data-src]')];
+  if (!boxes.length) return;
+  const fallback = (b, msg) => b.replaceChildren(h('div', { class: 'note' }, msg), h('pre', { class: 'fallback' }, h('code', null, b.dataset.src)));
+  let mm;
+  try { mm = await loadMermaid(); } catch { boxes.forEach(b => fallback(b, 'Diagram viewer could not load; showing the source.')); return; }
+  mm.initialize({ startOnLoad: false, securityLevel: 'strict', theme: isDark() ? 'dark' : 'default' });
+  for (const b of boxes) {
+    const id = 'mmd' + (++mmSeq), src = b.dataset.src;
+    try {
+      const { svg } = await mm.render(id, src);
+      b.replaceChildren(
+        h('div', { class: 'dtools' },
+          h('button', { onclick: () => openDiagram(svg) }, 'Enlarge'),
+          h('button', { onclick: () => copyText(src, 'Diagram source') }, 'Copy source')),
+        h('div', { html: svg }));
+    } catch { document.getElementById('d' + id)?.remove(); fallback(b, 'This diagram could not be drawn; showing its source.'); }
+  }
 }
 
 function banner() {
   const s = submitted();
-  if (s.action === 'approve') return h('div', { class: 'banner ok' }, 'Approved. You can return to the terminal; Claude is continuing.');
+  if (s.action === 'approve') return h('div', { class: 'banner ok' }, content().view === 'report' ? 'Done. You can close this tab and return to the terminal.' : 'Approved. You can return to the terminal; Claude is continuing.');
   if (s.action === 'console') return h('div', { class: 'banner warn' }, 'Switched to the terminal. Claude will ask you there.');
   if (s.action === 'ask') return h('div', { class: 'banner' }, 'Question sent. Claude is working on it; this page updates by itself.');
   return h('div', { class: 'banner' }, 'Changes sent. Claude is revising; this page updates by itself with the next round.');
@@ -337,7 +489,7 @@ function discuss(locked) {
     try { await patch({ ask: { text } }); await patch({ submit: { action: 'ask', round: round() } }); say(''); box.value = ''; await load(true); }
     catch (e) { say(e.message, true); } finally { busy = false; }
   } }, 'Send question to Claude');
-  return section('discuss', 'Questions for Claude', h('div', null, msgs.length ? h('div', { class: 'thread' }, msgs) : null, box, h('div', { class: 'row' }, send, h('span', { class: 'meta' }, 'Claude answers here without leaving the review.'))));
+  return section('discuss', c.view === 'report' ? 'Ask a follow-up' : 'Questions for Claude', h('div', null, msgs.length ? h('div', { class: 'thread' }, msgs) : null, box, h('div', { class: 'row' }, send, h('span', { class: 'meta' }, 'Claude answers here without leaving the review.'))));
 }
 
 function concerns(locked) {
@@ -351,12 +503,15 @@ function concerns(locked) {
 function refreshActions() {
   if (!data || !base) return;
   const locked = !!submitted(), ps = problems();
-  const approve = $('#b-approve'), revise = $('#b-revise'), cons = $('#b-console');
+  const approve = $('#b-approve'), revise = $('#b-revise'), cons = $('#b-console'), report = content().view === 'report';
   approve.disabled = locked || ps.length > 0;
   revise.disabled = locked;
+  revise.hidden = report;
   cons.disabled = locked;
+  approve.textContent = report ? 'Done' : 'Approve & continue';
+  cons.textContent = report ? 'Show in terminal instead' : 'Answer in console instead';
   approve.title = ps.join('\n');
-  if (!busy) say(locked ? '' : ps[0] ? ps[0] + (ps.length > 1 ? ` (+${ps.length - 1} more)` : '') : 'Ready to approve.');
+  if (!busy) say(locked || report ? '' : ps[0] ? ps[0] + (ps.length > 1 ? ` (+${ps.length - 1} more)` : '') : 'Ready to approve.');
 }
 async function submit(action) {
   busy = true; say('Sending…');

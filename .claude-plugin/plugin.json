@@ -1,6 +1,6 @@
 {
   "name": "repo-orchestrator",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Routed orchestrator for analysing, fixing, and building features across single or multiple repos, with per-stage models, automatic branch prep, and human gates.",
   "author": { "name": "Jaison D Souza B" }
 }

@@ -49,12 +49,15 @@ In-repo, durable:
 
 ## Stage 0: intake, route, mode (you do this yourself)
 1. Detect mode with git, not by looking for a .git folder (a worktree's .git is a file). If `git rev-parse --show-toplevel` succeeds, it is single-repo. Otherwise, if child folders are git repos (`git -C <child> rev-parse --show-toplevel` succeeds, skipping children whose `.git` is a file), it is cross-repo. If both apply (a repo containing sub-repos), ask the user once.
-2. Classify the task: analysis, bug-fix or feature. State your pick and let the user override.
+2. Pick the route: analysis, bug-fix or feature.
+   - The user may pass a route flag anywhere in the request: `--analysis`, `--fix` (alias `--bug`) or `--feature`. Strip the flag from the requirement text. If it is given, use it, ask nothing, and echo `Route: <route>` so the user can correct it. If two different route flags appear, ask which one is meant.
+   - If no flag is given, ask the user to choose between analysis, bug-fix and feature (AskUserQuestion, one question, three options), with your best guess from the wording listed first and marked "(Recommended)". If no requirement text was given either, ask for the route first, then the requirement.
+   - The user can still override the route later at any gate.
 3. Extract any repos or constraints the user already named.
 4. Compute the task-slug and the key(s). Hold them for the whole run.
 
 ## Routes
-- analysis: 0, then 0b (cross-repo), then Gate 1, then fetch and behind-warning only (see `branch-prep`), then analyzer, then STOP. The report is the deliverable.
+- analysis: 0, then 0b (cross-repo), then Gate 1, then fetch and behind-warning only (see `branch-prep`), then analyzer (dispatched with `route=analysis`, so it returns the short report view), then present the report (see "Presenting an analysis"), then STOP. The report is the deliverable.
 - bug-fix: 0, then 0b (cross-repo), then Gate 1 merged with branch prep, then analyzer (narrow), then planner (light), then implementer, then verifier, then knowledge-updater. Skip Gates 3 and 4 unless the user asks.
 - feature: all stages, all gates, including branch prep.
 - Single-repo: skip 0b. Branch prep still runs on bug-fix and feature.
@@ -64,7 +67,7 @@ Gates 1 and 2 are shown through the `browser-gate` skill when it is usable (user
 
 1. (cross-repo) discovery.
 2. Branch prep, per the `branch-prep` skill, on bug-fix and feature routes. Cross-repo: scan the proposed repo set, then show ONE combined Gate 1 screen (repo set plus branch actions). Single-repo: the same flow with a one-row table. Analysis route: Gate 1 confirms the repo set only.
-3. analyzer (per repo). Show its report. Analysis route: STOP here.
+3. analyzer (per repo). Bug-fix and feature: show its understanding. Analysis route: present the report as below, then STOP.
 4. planner. GATE 2: the user approves the plan and answers open questions. Append the answers and `## Approved: <timestamp>` to plan.md. In the browser, one page carries the understanding, the plan and the questions of both the analyzer and the planner; "revise" re-runs the planner and "ask" is answered by a subagent, each as a new round of the same gate.
 5. implementer (one per repo).
 6. verifier. Feature route: GATE 3, start review?
@@ -72,6 +75,17 @@ Gates 1 and 2 are shown through the `browser-gate` skill when it is usable (user
 8. test-author (per repo).
 9. knowledge-updater (per repo).
 10. End-of-run reminders from `branch-prep`.
+
+## Presenting an analysis (analysis route)
+The analysis report is shown as a page when the `browser-gate` conditions hold, because a short report with diagrams reads far better there than in a terminal.
+1. Cross-repo: put each repo's returned report under a `### <repo>` heading (path and summary glue only; never read source). Single-repo: use the report as returned.
+2. Write `gates/gate-2.json` (same GATE_DIR as the other gates) with `round: 1`, `view: "report"`, `route: "analysis"`, `mode`, `title`, `understanding` (the report text), `reports: ["analysis-report.md"]`, and `questions` from the analyzer's block (they are optional in this view). Use the `browser-gate` flow (`open`, then `wait`).
+3. Actions: `approve` means Done, so stop. `ask`: the user wrote a follow-up; dispatch the analyzer with the question and the task paths, put its short answer in `thread` with `to`, raise `round`, and `wait` again. `console`: print it as in step 4. There is no `revise` here. Do not append anything to plan.md: there is no plan on this route.
+4. Console fallback (browser not usable, or the user chose it): print the TL;DR, Key findings and Assumptions as text, and the diagrams as fenced `mermaid` blocks. End with the path to `analysis-report.md`.
+After the report, optionally suggest in one line that the user can run a bug-fix or feature route if they want to act on it. Do not offer a button for it.
+
+## Showing a standalone report
+`/repo-orchestrator:show <file.md>` opens any markdown file (a plan, an old analysis) in this same report page, with no pipeline run. See that command.
 
 ## Mid-run changes
 At a gate: edit the relevant file and re-present (in the browser: a new round of the same gate). Mid-subagent: the user interrupts, you amend inputs and re-dispatch. After a later stage: edit the upstream file and re-run from that stage forward.

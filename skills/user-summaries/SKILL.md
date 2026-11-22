@@ -17,6 +17,20 @@ Rule: completeness of DECISIONS, brevity of EXPLANATION. List every consequentia
 - Open questions — genuine blockers only, numbered.
 No code dumps, no file-by-file walkthrough.
 
+## Report view (analysis route) — what the browser page renders
+On the analysis route the report is the deliverable, so it is shown as a page, not read in a terminal. Write for a reader who skims: short, structured, diagrams over prose. The page splits the text on `## ` headings into collapsible sections, so use exactly these headings, in this order, and leave out any that do not apply:
+
+- `## TL;DR` — 1 to 3 lines, at most 280 characters. The direct answer to the request.
+- `## How it works` — one or two diagrams in ```mermaid fences. A `flowchart TD`/`LR` for control or data flow, a `sequenceDiagram` for calls between components or repos. At most about 10 nodes and 4 words per label. If a diagram would be bigger, split it. If the thing is a flat list, skip the diagram: no diagram beats a wrong one.
+- `## Components` — a table `| Component | Path | Role |`, at most 8 rows, Role at most 10 words. Paths only, no code.
+- `## Key findings` — 3 to 5 bullets, each at most 20 words. Tag the ones that need attention: `**[risk]**`, `**[gap]**`.
+- `## Assumptions` — bullets. Still the most important block.
+- `## Details` — optional, at most 15 lines. Hidden behind a "Show details" button. The full findings stay in `analysis-report.md`.
+
+Mermaid rules (a diagram that fails to parse shows as raw source): only `flowchart` and `sequenceDiagram`; wrap any label containing punctuation in double quotes; no HTML in labels; no `click`, `href`, `style` or `classDef` lines; never put code or file bodies in labels.
+
+Open questions are not part of the text: they go in the `questions` block below, and are optional in this view. Do not repeat any of this as a long summary; the page IS the summary.
+
 ## Questions block (analyzer and planner)
 After the summary, end the return with the open questions as a fenced block labelled `questions` holding a JSON array. The orchestrator shows them as answerable cards in the browser gate, or numbered in the console.
 

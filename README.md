@@ -17,12 +17,15 @@ Nothing else to install. The browser page is served by a small binary that ships
 ## Use
 
 ```
-/repo-orchestrator:orchestrate <what you want>
+/repo-orchestrator:orchestrate [--analysis | --fix | --feature] <what you want>
+/repo-orchestrator:show <file.md>
 /repo-orchestrator:code-review <repo or path>
 /repo-orchestrator:jira-story
 ```
 
-The orchestrator picks a route (analysis, bug-fix or feature) and lets you override it.
+Pass a route flag to pick the route yourself (`--bug` is an alias for `--fix`). Without one, you are asked to choose between analysis, bug-fix and feature, with the orchestrator's guess pre-selected.
+
+An analysis is shown in the browser as a short report: a TL;DR, flowcharts and sequence diagrams (drawn offline, no network), a components table, findings and assumptions, with collapsible sections, Expand/Collapse all, a "Show details" toggle, Copy as Markdown, enlargeable diagrams and Print. `show` opens any markdown file the same way.
 
 ## Browser gates
 

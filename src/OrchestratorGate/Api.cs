@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Http;
 namespace OrchestratorGate;
 
 /// <summary>The HTTP surface. Hand-routed so the binary needs no reflection and can be trimmed.</summary>
-public sealed class Api(GateStore store, ConfigFile config, int port, string version, string pageHtml, Action shutdown, Action<string> log)
+public sealed class Api(GateStore store, ConfigFile config, int port, string version, string pageHtml, string mermaidJs, Action shutdown, Action<string> log)
 {
     const int MaxBody = 1 << 20;
     public DateTime LastRequest { get; private set; } = DateTime.UtcNow;
@@ -53,6 +53,10 @@ public sealed class Api(GateStore store, ConfigFile config, int port, string ver
 
         if (method == "GET" && (path == "/" || path == "/index.html"))
             return await Send(ctx, 200, pageHtml, "text/html; charset=utf-8");
+
+        // Diagram renderer, bundled so reports work offline. Loaded by the page only when a report has a diagram.
+        if (method == "GET" && path == "/assets/mermaid.min.js")
+            return await Send(ctx, 200, mermaidJs, "text/javascript; charset=utf-8");
 
         if (method == "GET" && path == "/health")
             return await Send(ctx, 200, new JsonObject { ["app"] = "orchestrator-gate", ["version"] = version, ["dataDir"] = store.Home }.ToJsonString(), "application/json");
@@ -107,7 +111,7 @@ public sealed class Api(GateStore store, ConfigFile config, int port, string ver
         ctx.Response.Headers.CacheControl = "no-store";
         ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
         if (type.StartsWith("text/html"))
-            ctx.Response.Headers.ContentSecurityPolicy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'";
+            ctx.Response.Headers.ContentSecurityPolicy = "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'";
         await ctx.Response.WriteAsync(body);
         return code;
     }

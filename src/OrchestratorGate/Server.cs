@@ -41,6 +41,10 @@ public static class Server
             ?? throw new InvalidOperationException("page is not embedded");
         using var reader = new StreamReader(pageStream);
         var page = await reader.ReadToEndAsync();
+        using var mermaidStream = typeof(Server).Assembly.GetManifestResourceStream("mermaid.min.js")
+            ?? throw new InvalidOperationException("diagram renderer is not embedded");
+        using var mermaidReader = new StreamReader(mermaidStream);
+        var mermaidJs = await mermaidReader.ReadToEndAsync();
 
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions { ContentRootPath = AppContext.BaseDirectory });
         builder.Logging.ClearProviders();
@@ -52,7 +56,7 @@ public static class Server
         var app = builder.Build();
 
         var pid = System.IO.Path.Combine(home, "server.pid");
-        var api = new Api(new GateStore(home), new ConfigFile(home), port, AppInfo.Version, page,
+        var api = new Api(new GateStore(home), new ConfigFile(home), port, AppInfo.Version, page, mermaidJs,
             () => app.Lifetime.StopApplication(), Log);
         app.Run(api.Handle);
 

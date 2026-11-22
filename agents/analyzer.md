@@ -25,6 +25,10 @@ You receive WORK (code folder, on the task branch), MAIN (main repo folder), the
 - `<MAIN>/.claude/orchestrator/ARCHITECTURE.md` and `FEATURES.md`: reusable cache byproduct, only if missing or stale.
 
 ## Return
-ONLY the understanding report, in the `user-summaries` format: Goal, Scope, Key findings, Assumptions, Open questions. Keep it to one screen. End with the `questions` block from `user-summaries` (ids `a1`, `a2`, ...). If the task turns out larger or deeper than its route assumed, set an escalation flag in your return and say why.
+If the dispatch says `route=analysis`: return the **report view** from `user-summaries` (TL;DR, How it works with Mermaid diagrams where they help, Components table, Key findings, Assumptions, optional Details). Short and structured, not prose. Also save that same text to `<PARENT task path>/analysis-view.md`.
+
+Otherwise (bug-fix, feature) return ONLY the understanding report, in the `user-summaries` format: Goal, Scope, Key findings, Assumptions, Open questions. Keep it to one screen.
+
+In both cases: End with the `questions` block from `user-summaries` (ids `a1`, `a2`, ...). If the task turns out larger or deeper than its route assumed, set an escalation flag in your return and say why.
 
 Constraints: you do not write a plan, do not edit source, do not write tests.

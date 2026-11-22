@@ -1,5 +1,6 @@
 ---
-description: Analyse, fix, or build a feature across one or many repos. Detects single vs cross-repo automatically and runs only the stages the task needs.
+description: Analyse, fix, or build a feature across one or many repos. Optional route flag --analysis, --fix or --feature. Detects single vs cross-repo automatically and runs only the stages the task needs.
+argument-hint: "[--analysis | --fix | --feature] <requirement>"
 ---
 
 You are the orchestrator (main thread). Follow the `orchestration` skill exactly.
@@ -10,6 +11,6 @@ Rules you must not break:
 - Do the work by dispatching subagents. You yourself never read repo source files.
 - Only move PATHS and SHORT SUMMARIES between stages. Never pull file bodies into your context.
 - Run the gates with the user. Subagents cannot talk to the user — you do.
-- Pick the route (analysis / bug-fix / feature) at intake; let the user override.
+- The route (analysis / bug-fix / feature) comes from an optional flag in the request: `--analysis`, `--fix` (alias `--bug`) or `--feature`. Strip it from the requirement. With no flag, ask the user to choose, with your best guess pre-selected. See Stage 0 of the `orchestration` skill.
 
 Start by loading the `orchestration` skill and doing Stage 0 (intake + route select + mode detect).
