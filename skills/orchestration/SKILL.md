@@ -85,7 +85,7 @@ The analysis report is shown as a page when the `browser-gate` conditions hold, 
 After the report, optionally suggest in one line that the user can run a bug-fix or feature route if they want to act on it. Do not offer a button for it.
 
 ## Showing a standalone report
-`/repo-orchestrator:show <file.md>` opens any markdown file (a plan, an old analysis) in this same report page, with no pipeline run. See that command.
+`/orch:show <file.md>` opens any markdown file (a plan, an old analysis) in this same report page, with no pipeline run. See that command.
 
 ## Mid-run changes
 At a gate: edit the relevant file and re-present (in the browser: a new round of the same gate). Mid-subagent: the user interrupts, you amend inputs and re-dispatch. After a later stage: edit the upstream file and re-run from that stage forward.
