@@ -8,7 +8,7 @@ In Claude Code:
 
 ```
 /plugin marketplace add jaison10/cross-repo-orchestrator
-/plugin install repo-orchestrator@repo-orchestrator-marketplace
+/plugin install orch@repo-orchestrator-marketplace
 /reload-plugins
 ```
 
@@ -17,10 +17,10 @@ Nothing else to install. The browser page is served by a small binary that ships
 ## Use
 
 ```
-/repo-orchestrator:orchestrate [--analysis | --fix | --feature] <what you want>
-/repo-orchestrator:show <file.md>
-/repo-orchestrator:code-review <repo or path>
-/repo-orchestrator:jira-story
+/orch:orchestrate [--analysis | --fix | --feature] <what you want>
+/orch:show <file.md>
+/orch:code-review <repo or path>
+/orch:jira-story
 ```
 
 Pass a route flag to pick the route yourself (`--bug` is an alias for `--fix`). Without one, you are asked to choose between analysis, bug-fix and feature, with the orchestrator's guess pre-selected.
