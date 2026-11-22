@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>orchestrator-gate</AssemblyName>
     <RootNamespace>OrchestratorGate</RootNamespace>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <InvariantGlobalization>true</InvariantGlobalization>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
@@ -16,6 +16,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="page\index.html" LogicalName="index.html" />
+    <!-- Diagram renderer (MIT, see page\vendor\mermaid.LICENSE), bundled so reports work offline. -->
+    <EmbeddedResource Include="page\vendor\mermaid.min.js" LogicalName="mermaid.min.js" />
   </ItemGroup>
 
 </Project>

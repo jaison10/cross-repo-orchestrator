@@ -65,6 +65,48 @@ public class GateStoreTests
         Assert.Equal("approve", (string)s["submitted"]!["action"]!);
     }
 
+    static JsonObject Report() => JsonNode.Parse("""
+        {
+          "round": 1, "view": "report", "route": "analysis",
+          "understanding": "## TL;DR\nIt works.\n\n```mermaid\nflowchart TD\n  A --> B\n```",
+          "questions": [ { "id": "a1", "text": "Optional?" } ],
+          "repos": [ { "id": "api", "name": "api", "dirty": true } ]
+        }
+        """)!.AsObject();
+
+    [Fact]
+    public void A_report_can_be_marked_done_with_open_questions_and_undecided_repos()
+    {
+        using var f = new Fixture(Report());
+        var s = f.Patch("""{"submit":{"action":"approve","round":1}}""");
+        Assert.Equal("approve", (string)s["submitted"]!["action"]!);
+    }
+
+    [Fact]
+    public void A_report_has_nothing_to_revise()
+    {
+        using var f = new Fixture(Report());
+        Assert.Equal(400, Fails(() => f.Patch("""{"submit":{"action":"revise","round":1}}""")).Code);
+    }
+
+    [Fact]
+    public void A_report_still_takes_follow_up_questions()
+    {
+        using var f = new Fixture(Report());
+        f.Patch("""{"ask":{"text":"Why does it retry?"}}""");
+        var s = f.Patch("""{"submit":{"action":"ask","round":1}}""");
+        Assert.Equal("ask", (string)s["submitted"]!["action"]!);
+    }
+
+    [Fact]
+    public void Only_a_report_skips_the_approval_checks()
+    {
+        using var f = new Fixture();   // a normal gate
+        Assert.NotEmpty(GateStore.Problems(f.Store.LoadState(f.Ref), Fixture.Default()));
+        Assert.Empty(GateStore.Problems(f.Store.LoadState(f.Ref), Report()));
+        Assert.Equal(400, Fails(() => f.Patch("""{"submit":{"action":"approve","round":1}}""")).Code);
+    }
+
     [Fact]
     public void A_free_text_answer_counts_for_a_question_with_options()
     {

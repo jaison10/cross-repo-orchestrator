@@ -1,6 +1,6 @@
 ---
 name: browser-gate
-description: Shows a gate (understanding, effective repos, plan, questions) in a local browser page and resumes the run when the user submits. Used by the orchestration skill for Gates 1 and 2; main thread only. Falls back to the console.
+description: Shows a gate (understanding, effective repos, plan, questions) in a local browser page and resumes the run when the user submits. Used by the orchestration skill for Gates 1 and 2, for the read-only analysis report, and by the show command; main thread only. Falls back to the console.
 allowed-tools: Bash(orchestrator-gate *), Bash(${CLAUDE_SKILL_DIR}/dist/*), Bash("${CLAUDE_SKILL_DIR}/dist/*)
 ---
 
@@ -53,6 +53,7 @@ Content fields (all optional except `round`; leave out what the gate does not ha
 |---|---|
 | `round` | Integer, starts at 1. Raise it each time you rewrite the content in answer to a submit. |
 | `title`, `route`, `mode` | Header text. `mode` is `single-repo` or `cross-repo`. |
+| `view` | `"report"` turns the page into a read-only report: `understanding` is split on `## ` headings into collapsible sections (a `TL;DR` section is a highlighted card, a `Details` section sits behind a "Show details" button), ` ```mermaid ` blocks are drawn as diagrams (enlarge, copy source; a bad diagram shows its source), tables render, and there are Expand/Collapse all, Copy as Markdown and Print buttons. No repo, plan or concerns controls; questions are optional; the footer is **Done** (sent as `approve`) and "Show in terminal instead" (`console`). `revise` is refused. Follow-up questions (`ask`) still work. |
 | `understanding` | Markdown: the analyzer's understanding report (Goal, Scope, Key findings, Assumptions). Summary text only, never file bodies. |
 | `repos` | `[{id, name, path, reason, branch, dirty, dirtyFiles[], risk, include}]`. `dirty: true` makes the page require a Keep / Stash / Worktree choice. `include` defaults to true. |
 | `needsWorktreeRoot` | True when no `worktree-root` is configured, so choosing Worktree asks for the folder. |
@@ -72,7 +73,7 @@ State, as you will see it in the `wait` output: `answers` (`{<question id>: {cho
 
 | `action` | Do |
 |---|---|
-| `approve` | Everything is answered. Proceed as the gate's normal "approved" path. Gate 2: append the answers and `## Approved: <timestamp>` to `plan.md`. Gate 1: use the repo selection and each dirty repo's `dirtyChoice`; if `worktreeRoot` is set and was missing, run `orchestrator-gate set worktree-root <value>`. |
+| `approve` | (`view: "report"`: the user pressed Done, so just stop; there is no plan.md to update.) Everything is answered. Proceed as the gate's normal "approved" path. Gate 2: append the answers and `## Approved: <timestamp>` to `plan.md`. Gate 1: use the repo selection and each dirty repo's `dirtyChoice`; if `worktreeRoot` is set and was missing, run `orchestrator-gate set worktree-root <value>`. |
 | `revise` | The user answered and/or has concerns (`state.concerns`, changed answers). Re-run the planner (or the analyzer if the concern is about understanding) with the answers and concerns as input, rewrite the content with `round + 1`, and run step 3 again for the new round. Do not approve on their behalf. |
 | `ask` | The user wrote questions (`state.asked`, those with the current round and no reply in `thread`). The orchestrator never reads source: dispatch the analyzer (or planner, for plan questions) with the question and the task paths, and take back a short answer. Add it to `thread` with `to: "<their id>"`, rewrite the content with `round + 1`, run step 3 again. The page shows your answer by itself. |
 | `console` | The user prefers the terminal for this gate. Ask the same questions in the console, using the answers already in `state.answers` as given. |
