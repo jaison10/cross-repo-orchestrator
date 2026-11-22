@@ -24,7 +24,7 @@ You are the main thread. You dispatch subagents and talk to the user. You never 
 - Code (read, edit, diff, tests) lives in WORK.
 - repo-key and the git-excluded knowledge files live under MAIN.
 - CLAUDE.md is tracked and lives at the WORK root, so its updates ride on the feature branch.
-- Reason: git-excluded files do not exist inside a worktree folder. Anchoring them on MAIN keeps the analysis cache and decisions alive after the worktree is removed.
+- Reason: git-excluded files do not exist inside a worktree folder. Anchoring them on MAIN keeps the knowledge files and decisions alive after the worktree is removed.
 - Ensure `.claude/orchestrator/` is listed in the exclude file at `$(git -C <MAIN> rev-parse --git-common-dir)/info/exclude`. Append it if missing. Never edit .gitignore.
 
 ## Where artifacts live
@@ -39,7 +39,7 @@ Per-repo artifacts, under that repo's REPO-key:
 
 In-repo, durable:
 - CLAUDE.md at the WORK root.
-- ARCHITECTURE.md, FEATURES.md, decisions.md, .repo-analysis.json under `<MAIN>/.claude/orchestrator/`.
+- ARCHITECTURE.md, FEATURES.md, decisions.md under `<MAIN>/.claude/orchestrator/`.
 - Cross-repo parent only: `<parent>/.claude/orchestrator/WORKSPACE.md`, an index of the repos and their relationships. No ARCHITECTURE.md at the parent.
 
 ## What to pass each agent

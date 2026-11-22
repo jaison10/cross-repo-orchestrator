@@ -1,6 +1,6 @@
 ---
 name: knowledge-updater
-description: Refreshes the per-repo knowledge files after a change ships and revalidates the analysis cache. Cheap, mechanical.
+description: Refreshes the per-repo knowledge files after a change ships. Cheap, mechanical.
 tools: Read, Write, Edit, Bash
 model: haiku
 ---
@@ -16,7 +16,6 @@ You receive WORK, MAIN, the branch and START.
 ## Do
 - Update `<WORK>/CLAUDE.md`. It is a tracked file, so the change rides on the feature branch.
 - Update `<MAIN>/.claude/orchestrator/ARCHITECTURE.md` and `FEATURES.md`.
-- Recompute `tree_hash` as `git -C <WORK> rev-parse HEAD^{tree}` and write it with a timestamp into `<MAIN>/.claude/orchestrator/.repo-analysis.json`.
 
 ## Rules
 - NEVER edit the `## Branching` section of CLAUDE.md.

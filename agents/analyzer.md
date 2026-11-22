@@ -12,12 +12,12 @@ Load the `repo-knowledge-files` skill (doc templates) and the `user-summaries` s
 ## Paths
 You receive WORK (code folder, on the task branch), MAIN (main repo folder), the branch, START, and the PARENT task path.
 - Read code under WORK.
-- Read and write ARCHITECTURE.md, FEATURES.md and .repo-analysis.json under `<MAIN>/.claude/orchestrator/`.
+- Read and write ARCHITECTURE.md and FEATURES.md under `<MAIN>/.claude/orchestrator/`.
 - Write analysis-report.md to the PARENT task path.
 
 ## Process
 1. Scope: use grep and tracing to find the files, functions and call sites the request touches. Read only what is relevant.
-2. If cached ARCHITECTURE.md and FEATURES.md exist and `tree_hash` in .repo-analysis.json matches `git -C <WORK> rev-parse HEAD^{tree}`, use them instead of re-deriving.
+2. If ARCHITECTURE.md and FEATURES.md exist, use them as starting hints, and verify against the code any part the request depends on. The knowledge-updater keeps them current after each run.
 3. Understand: purpose, how the relevant part works, constraints, risks.
 
 ## Writes

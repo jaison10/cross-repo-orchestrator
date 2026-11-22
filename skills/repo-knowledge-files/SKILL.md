@@ -1,12 +1,12 @@
 ---
 name: repo-knowledge-files
-description: Templates and placement rules for the per-repo knowledge files (CLAUDE.md, ARCHITECTURE.md, FEATURES.md) and the analysis cache metadata.
+description: Templates and placement rules for the per-repo knowledge files (CLAUDE.md, ARCHITECTURE.md, FEATURES.md).
 ---
 
 # Repo knowledge files
 
 ## CLAUDE.md: WORK root (auto-loaded every session, keep it lean)
-What the repo is, how to build/run/test, key conventions, main entry points. Short. Detail belongs in the files below.
+What the repo is (open with a one-line description, which discovery reads), how to build/run/test, key conventions, main entry points. Short. Detail belongs in the files below.
 
 CLAUDE.md also carries the team's branching convention. Keep this block in it:
 
@@ -22,11 +22,6 @@ Modules and layering, data flow, key abstractions, external dependencies.
 
 ## FEATURES.md: <MAIN>/.claude/orchestrator/
 The capability map: what the repo does, feature by feature.
-
-## .repo-analysis.json: <MAIN>/.claude/orchestrator/
-`{ "tree_hash": "...", "updated_at": "...", "one_line": "..." }`
-- `tree_hash` is `git -C <WORK> rev-parse HEAD^{tree}`.
-- The analyzer skips re-analysis when `tree_hash` matches the current tree. Discovery reads `one_line`.
 
 ## Placement
 - CLAUDE.md sits at the WORK root, because auto-load requires the repo root and it is tracked.
