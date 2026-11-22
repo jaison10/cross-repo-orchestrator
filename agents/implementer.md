@@ -23,6 +23,8 @@ You receive WORK, MAIN, the branch, START, the PARENT task path and your repo's 
 - Append ADR entries to `<MAIN>/.claude/orchestrator/decisions.md`, re-reading it right before appending.
 
 ## Do
+If plan.md has no `## Approved:` line, stop and return that as a blocker instead of implementing.
+
 Implement exactly what the plan specifies, the smallest change that satisfies it, matching existing repo conventions.
 
 ## Ownership walls

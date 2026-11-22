@@ -60,7 +60,7 @@ Show the new branch name, then one table: Repo | Current branch | Uncommitted | 
 ## 5. Execute (only after confirmation)
 START is `<remote>/<base>`, or the local base if the user chose that.
 - CLEAN, or Keep: `git -C <repo> switch -c <branch> --no-track <START>`. If git aborts with "would be overwritten", nothing has changed. Then run `git -C <repo> stash push -u -m "orchestrator: <branch> <time>"`, then `switch -c`, then `git -C <repo> stash pop`. If the pop conflicts: stop, list the conflicted files, keep the stash entry, wait for the user.
-- Stash: `git -C <repo> stash push -u -m "orchestrator: <branch> <time>"`, then `switch -c --no-track <branch> <START>`. Remember the stash name.
+- Stash: `git -C <repo> stash push -u -m "orchestrator: <branch> <time>"`, then `git -C <repo> switch -c <branch> --no-track <START>`. Remember the stash name.
 - Worktree: WORKPATH is `<worktree-root>/<repo-folder>-<slug>`. If it already exists, ask. Create `<worktree-root>` if missing. Run `git -C <repo> worktree add --no-track -b <branch> <WORKPATH> <START>`. The original folder stays untouched. Tell the user the new folder lacks ignored files (node_modules, bin/obj, .env), so they must restore or build there. If `<worktree-root>` is outside the folder Claude was launched from, tell the user to run `/add-dir <WORKPATH>` or start a session there.
 - RESUME: nothing to do.
 - Failure partway through a cross-repo run: stop, show which repos are done and which are not, and offer to undo the finished ones (switch back, delete the new empty branch, `git worktree remove`, restore the stash). Do each undo only with the user's agreement.
