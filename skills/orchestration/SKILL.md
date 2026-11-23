@@ -14,7 +14,10 @@ You are the main thread. You dispatch subagents and talk to the user. You never 
 
 ## Keys and task slug (compute once at Stage 0, pass to agents)
 - task-slug: short kebab-case slug of the request plus the date, e.g. `refund-endpoint-2026-11-15`. Reuse the SAME slug for every stage of the run. On /resume it comes back with the session. In a fresh session, the user points at the task folder by path.
-- repo-key (per repo): slug of the MAIN repo folder name + "-" + first 8 chars of a hash of the MAIN folder's absolute path. Worktrees of one repo share a repo-key; the task-slug keeps their central folders apart.
+- repo-key (per repo): `<name>-<hash>`. Worktrees of one repo share a repo-key; the task-slug keeps their central folders apart.
+  - `<name>`: the MAIN folder's name with every run of characters outside `A-Z a-z 0-9 . _ -` replaced by one `-`, leading and trailing non-alphanumerics trimmed, cut to 40 characters, case kept. The server accepts only `^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`, so a name with spaces or other URL-unsafe characters is made safe here, when the folder is created.
+  - `<hash>`: the first 8 hex characters of the SHA-1 of MAIN's absolute path written in one canonical form: forward slashes, an uppercase Windows drive letter (`D:/Jaison-Data/test`, never `D:\...` or the Git Bash form `/d/...`), no trailing slash. Example: `printf %s "D:/Jaison-Data/test" | sha1sum | cut -c1-8`.
+  - Never compute the key any other way: a different path form or hash gives a different folder for the same repo.
 - parent-key (cross-repo only): the same formula applied to the PARENT folder's path.
 - Single-repo: there is one key.
 
@@ -24,7 +27,7 @@ You are the main thread. You dispatch subagents and talk to the user. You never 
 - Code (read, edit, diff, tests) lives in WORK.
 - repo-key and the git-excluded knowledge files live under MAIN.
 - CLAUDE.md is tracked and lives at the WORK root, so its updates ride on the feature branch.
-- Reason: git-excluded files do not exist inside a worktree folder. Anchoring them on MAIN keeps the analysis cache and decisions alive after the worktree is removed.
+- Reason: git-excluded files do not exist inside a worktree folder. Anchoring them on MAIN keeps the knowledge files and decisions alive after the worktree is removed.
 - Ensure `.claude/orchestrator/` is listed in the exclude file at `$(git -C <MAIN> rev-parse --git-common-dir)/info/exclude`. Append it if missing. Never edit .gitignore.
 
 ## Where artifacts live
@@ -39,7 +42,7 @@ Per-repo artifacts, under that repo's REPO-key:
 
 In-repo, durable:
 - CLAUDE.md at the WORK root.
-- ARCHITECTURE.md, FEATURES.md, decisions.md, .repo-analysis.json under `<MAIN>/.claude/orchestrator/`.
+- ARCHITECTURE.md, FEATURES.md, decisions.md under `<MAIN>/.claude/orchestrator/`.
 - Cross-repo parent only: `<parent>/.claude/orchestrator/WORKSPACE.md`, an index of the repos and their relationships. No ARCHITECTURE.md at the parent.
 
 ## What to pass each agent
@@ -58,7 +61,7 @@ In-repo, durable:
 
 ## Routes
 - analysis: 0, then 0b (cross-repo), then Gate 1, then fetch and behind-warning only (see `branch-prep`), then analyzer (dispatched with `route=analysis`, so it returns the short report view), then present the report (see "Presenting an analysis"), then STOP. The report is the deliverable.
-- bug-fix: 0, then 0b (cross-repo), then Gate 1 merged with branch prep, then analyzer (narrow), then planner (light), then implementer, then verifier, then knowledge-updater. Skip Gates 3 and 4 unless the user asks.
+- bug-fix: 0, then 0b (cross-repo), then Gate 1 merged with branch prep, then analyzer (narrow), then planner (light), then Gate 2 (plan approval and open questions, required before the implementer), then implementer, then verifier, then knowledge-updater. Skip Gates 3 and 4 unless the user asks.
 - feature: all stages, all gates, including branch prep.
 - Single-repo: skip 0b. Branch prep still runs on bug-fix and feature.
 
@@ -92,5 +95,3 @@ At a gate: edit the relevant file and re-present (in the browser: a new round of
 
 ## Escalation
 If an agent returns an escalation flag (the task is bigger or deeper than its route assumed), tell the user and offer to switch route rather than continuing on the light path.
-
-DUMMY ADDITIONAL ADDED

@@ -247,11 +247,22 @@ async function patch(p) {
   refreshActions();
   return r;
 }
+const pending = {};
+let queue = Promise.resolve();
+const send = p => (queue = queue.catch(() => {}).then(() => patch(p)));
 function save(key, p, delay = 0) {
   clearTimeout(timers[key]);
-  timers[key] = setTimeout(() => patch(p).catch(e => say(e.message, true)), delay);
+  pending[key] = p;
+  timers[key] = setTimeout(() => { delete timers[key]; delete pending[key]; send(p).catch(e => say(e.message, true)); }, delay);
 }
-function flush() { for (const k of Object.keys(timers)) { clearTimeout(timers[k]); } }
+/* Send every debounced edit now and wait for all saves (including ones already in flight). Rejects if a save fails. */
+async function flush() {
+  for (const k of Object.keys(timers)) { clearTimeout(timers[k]); delete timers[k]; }
+  const ps = Object.values(pending);
+  for (const k of Object.keys(pending)) delete pending[k];
+  for (const p of ps) send(p);
+  await queue;
+}
 
 /* ---------- derived state ---------- */
 const content = () => data.content;
@@ -485,8 +496,8 @@ function discuss(locked) {
   const box = h('textarea', { rows: 2, id: 'ask', disabled: locked, placeholder: 'Anything unclear or worrying? Ask Claude here.' });
   const send = h('button', { class: 'btn', disabled: locked, onclick: async () => {
     const text = box.value.trim(); if (!text) { say('Write a question first.', true); return; }
-    flush(); busy = true;
-    try { await patch({ ask: { text } }); await patch({ submit: { action: 'ask', round: round() } }); say(''); box.value = ''; await load(true); }
+    busy = true;
+    try { await flush(); await patch({ ask: { text } }); await patch({ submit: { action: 'ask', round: round() } }); say(''); box.value = ''; await load(true); }
     catch (e) { say(e.message, true); } finally { busy = false; }
   } }, 'Send question to Claude');
   return section('discuss', c.view === 'report' ? 'Ask a follow-up' : 'Questions for Claude', h('div', null, msgs.length ? h('div', { class: 'thread' }, msgs) : null, box, h('div', { class: 'row' }, send, h('span', { class: 'meta' }, 'Claude answers here without leaving the review.'))));
@@ -515,7 +526,7 @@ function refreshActions() {
 }
 async function submit(action) {
   busy = true; say('Sending…');
-  try { flush(); await patch({ submit: { action, round: round() } }); busy = false; render(); say(''); }
+  try { await flush(); await patch({ submit: { action, round: round() } }); busy = false; render(); say(''); }
   catch (e) { busy = false; say(e.message, true); }
 }
 $('#b-approve').onclick = () => submit('approve');
