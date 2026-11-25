@@ -21,6 +21,7 @@ You receive WORK, MAIN, the branch and START.
 - NEVER edit the `## Branching` section of CLAUDE.md.
 - Re-read each file immediately before writing it, because another session may have changed it.
 - Minimal edits, no rewrites.
+- Do not document changes in PRE-EXISTING files (if given) that the task did not make.
 - Do not commit.
 
 ## Return

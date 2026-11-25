@@ -278,6 +278,8 @@ bash ./build
 
 **A follow-up question is never answered.** Claude only sees your question while a `wait` is running, and `wait` gives up after 30 idle minutes. Tell Claude in the terminal: "I asked a follow-up on the page, please answer it", and it will read it and reopen the page.
 
+**I typed a question in an answer box and the same question came back reworded.** By design: text that is a question or confusion is not taken as your answer; Claude rewrites the question more clearly as a new round (id ends `-r<round>`). Pick an option or type a real answer, then approve.
+
 **PowerShell-only shell.** Claude runs the binary as `& "<skill base dir>\dist\win-x64\orchestrator-gate.exe" <command>`. It uses Bash when available and PowerShell only when not.
 
 **A subagent could not write its report file.** Reports go to `~/.orchestrator/`, outside the project, and subagents cannot ask you for permission. Allow the folder for the session with `/add-dir ~/.orchestrator` (expand `~`) and re-run the stage.
