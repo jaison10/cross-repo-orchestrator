@@ -144,7 +144,13 @@ public sealed class GateStore(string home)
             throw new GateException(409, "the page is out of date (round changed); reload it");
 
         if (IsReport(content) && action == "revise")
-            throw new GateException(400, "a report has nothing to revise; ask a follow-up question instead");
+        {
+            if (Json.Bool(content["reanalyse"]) != true)
+                throw new GateException(400, "a report has nothing to revise; ask a follow-up question instead");
+            var answers = (JsonObject)state["answers"]!;
+            if (!QuestionIds(content).Any(id => Answered(answers, id)))
+                throw new GateException(400, "answer at least one question first");
+        }
 
         if (action == "approve")
         {
@@ -157,8 +163,14 @@ public sealed class GateStore(string home)
         state["submitted"] = new JsonObject { ["action"] = action, ["round"] = round, ["at"] = DateTime.UtcNow.ToString("o") };
     }
 
-    /// <summary>A read-only report (analysis, standalone show): "approve" means Done and nothing can block it.</summary>
+    /// <summary>A read-only report (analysis, standalone show): "approve" means Done and nothing can block it; "revise" only when the content has reanalyse: true.</summary>
     public static bool IsReport(JsonObject content) => Json.Str(content["view"]) == "report";
+
+    static IEnumerable<string> QuestionIds(JsonObject content) =>
+        (content["questions"] as JsonArray ?? []).Select(q => Json.Str(q?["id"])).OfType<string>();
+
+    static bool Answered(JsonObject answers, string id) =>
+        answers[id] is JsonObject a && (Json.Str(a["choice"]) ?? "").Length + (Json.Str(a["text"]) ?? "").Trim().Length > 0;
 
     /// <summary>What still blocks an approval: unanswered questions, no repo chosen, a dirty repo with no decision. A report view has none.</summary>
     public static List<string> Problems(JsonObject state, JsonObject content)
@@ -166,11 +178,7 @@ public sealed class GateStore(string home)
         var problems = new List<string>();
         if (IsReport(content)) return problems;
         var answers = (JsonObject)state["answers"]!;
-        var open = (content["questions"] as JsonArray ?? [])
-            .Select(q => Json.Str(q?["id"])).Where(id => id is not null)
-            .Where(id => answers[id!] is not JsonObject a
-                || (Json.Str(a["choice"]) ?? "").Length + (Json.Str(a["text"]) ?? "").Trim().Length == 0)
-            .ToList();
+        var open = QuestionIds(content).Where(id => !Answered(answers, id)).ToList();
         if (open.Count > 0) problems.Add($"{open.Count} unanswered question(s)");
 
         if (content["repos"] is JsonArray { Count: > 0 } repos)

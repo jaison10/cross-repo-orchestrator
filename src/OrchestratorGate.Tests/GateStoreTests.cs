@@ -87,6 +87,32 @@ public class GateStoreTests
     {
         using var f = new Fixture(Report());
         Assert.Equal(400, Fails(() => f.Patch("""{"submit":{"action":"revise","round":1}}""")).Code);
+
+        f.Patch("""{"answer":{"id":"a1","choice":"x"}}""");
+        Assert.Contains("nothing to revise", Fails(() => f.Patch("""{"submit":{"action":"revise","round":1}}""")).Message);
+    }
+
+    [Fact]
+    public void A_reanalyse_report_can_be_revised_once_a_question_is_answered()
+    {
+        var c = Report();
+        c["reanalyse"] = true;
+        using var f = new Fixture(c);
+        Assert.Contains("answer at least one", Fails(() => f.Patch("""{"submit":{"action":"revise","round":1}}""")).Message);
+
+        f.Patch("""{"answer":{"id":"a1","text":"EU only"}}""");
+        var s = f.Patch("""{"submit":{"action":"revise","round":1}}""");
+        Assert.Equal("revise", (string)s["submitted"]!["action"]!);
+    }
+
+    [Fact]
+    public void Reanalyse_ignores_answers_to_old_questions()
+    {
+        var c = Report();
+        c["reanalyse"] = true;
+        using var f = new Fixture(c);
+        f.Patch("""{"answer":{"id":"a9","choice":"x"}}""");
+        Assert.Equal(400, Fails(() => f.Patch("""{"submit":{"action":"revise","round":1}}""")).Code);
     }
 
     [Fact]
