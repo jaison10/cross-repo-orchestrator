@@ -115,14 +115,19 @@ section.rep > details > .md { margin-top: 12px; }
 .diagram pre.fallback { text-align: left; margin: 0; }
 .diagram .note { color: var(--warn); font-size: 12px; text-align: left; margin-bottom: 6px; }
 .dtools { display: flex; gap: 6px; justify-content: flex-end; margin-bottom: 6px; }
-.dtools button, .modal button { font-size: 12px; padding: 3px 10px; border: 1px solid var(--line); background: var(--panel); border-radius: 6px; cursor: pointer; }
-.dtools button:hover, .modal button:hover { border-color: var(--accent); }
+.dtools button, .modal button, .scopy { font-size: 12px; padding: 3px 10px; border: 1px solid var(--line); background: var(--panel); border-radius: 6px; cursor: pointer; }
+.dtools button:hover, .modal button:hover, .scopy:hover { border-color: var(--accent); }
+section.rep { position: relative; }
+.scopy { position: absolute; top: 14px; right: 16px; }
+.raw { margin-bottom: 16px; }
+.raw textarea { min-height: 220px; font: 13px ui-monospace, Consolas, monospace; }
+.md li > ul, .md li > ol { margin: 2px 0; }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 20; display: flex; flex-direction: column; }
 .modal .mbar { display: flex; gap: 8px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); align-items: center; }
 .modal .mbody { flex: 1; overflow: auto; background: var(--panel); padding: 20px; }
 .modal .mbody svg { max-width: none; height: auto; }
 @media print {
-  header, footer, .toolbar, .dtools, #discuss { display: none !important; }
+  header, footer, .toolbar, .dtools, .scopy, .raw, #discuss { display: none !important; }
   main { padding: 0; } section { break-inside: avoid; } section.tier-detail { display: block; }
 }
 </style>
@@ -193,19 +198,43 @@ async function api(path, opts) {
 function say(text, bad) { const s = $('#status'); s.textContent = text || ''; s.className = bad ? 'bad' : ''; }
 
 /* ---------- small, safe markdown (everything is escaped first) ---------- */
+/* pure:begin */
 const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function inline(s) {
+  const keep = [], put = v => '\u0000' + (keep.push(v) - 1) + '\u0000';
   return esc(s)
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/`([^`]+)`/g, (_, c) => put('<code>' + c + '</code>'))
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/\u0000(\d+)\u0000/g, (_, i) => keep[i]);
+}
+const LI = /^(\s*)([-*]|\d+[.)])\s+(.*)$/;
+// Split on `|` that is neither escaped (`\|`) nor inside a backtick code span; `\|` comes out as `|`.
+function cells(r) {
+  const out = [''];
+  for (const t of r.trim().match(/\\\||`[^`]*`|[^|]|\|/g) || []) {
+    if (t === '|') out.push(''); else out[out.length - 1] += t === '\\|' ? '|' : t;
+  }
+  if (out.length > 1 && !out[0].trim()) out.shift();
+  if (out.length > 1 && !out.at(-1).trim()) out.pop();
+  return out.map(c => c.trim());
+}
+const isSep = r => r.every(c => /^:?-+:?$/.test(c));
+const task = s => s.replace(/^\[([ xX])\]\s+/, (_, x) => x === ' ' ? '☐ ' : '☑ ');   // task item -> glyph, never a live checkbox
+// Open-list stack shared by md() and wiki(): closes lists deeper than `ind` (or of the other type at the same depth), opens one if deeper.
+function nest(stack, ind, type) {
+  const closed = [];
+  while (stack.length && (ind < stack.at(-1).ind || (ind === stack.at(-1).ind && type !== stack.at(-1).type))) closed.push(stack.pop().type);
+  const opened = !stack.length || ind > stack.at(-1).ind;
+  if (opened) stack.push({ ind, type });
+  return { closed, opened };
 }
 function md(src) {
   const lines = String(src || '').replace(/\r\n?/g, '\n').split('\n');
-  let out = '', list = null, para = [], fence = null, lang = '', table = null;
+  let out = '', stack = [], para = [], fence = null, lang = '', table = null;
   const endPara = () => { if (para.length) out += '<p>' + inline(para.join(' ')) + '</p>'; para = []; };
-  const endList = () => { if (list) out += '</' + list + '>'; list = null; };
+  const endList = () => { while (stack.length) out += '</li></' + stack.pop().type + '>'; };
   const endFence = () => {
     const code = fence.join('\n');
     out += lang === 'mermaid'
@@ -215,8 +244,7 @@ function md(src) {
   };
   const endTable = () => {
     if (!table) return;
-    const cells = r => r.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
-    const rows = table.map(cells), sep = rows.length > 1 && rows[1].every(c => /^:?-+:?$/.test(c));
+    const rows = table.map(cells), sep = rows.length > 1 && isSep(rows[1]);
     const row = (r, tag) => '<tr>' + r.map(c => `<${tag}>${inline(c)}</${tag}>`).join('') + '</tr>';
     out += '<table>' + (sep ? '<thead>' + row(rows[0], 'th') + '</thead>' : '') + '<tbody>' + rows.slice(sep ? 2 : 0).map(r => row(r, 'td')).join('') + '</tbody></table>';
     table = null;
@@ -227,10 +255,16 @@ function md(src) {
     let m;
     if ((m = /^```(\w*)/.exec(line))) { endPara(); endList(); fence = []; lang = m[1].toLowerCase(); }
     else if (/^\s*\|/.test(line)) { endPara(); endList(); (table ||= []).push(line); }
-    else if (!line.trim()) { endPara(); endList(); }
+    else if (!line.trim()) endPara();
     else if ((m = /^(#{1,4})\s+(.*)$/.exec(line))) { endPara(); endList(); out += `<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`; }
-    else if ((m = /^\s*[-*]\s+(.*)$/.exec(line))) { endPara(); if (list !== 'ul') { endList(); out += '<ul>'; list = 'ul'; } out += '<li>' + inline(m[1]) + '</li>'; }
-    else if ((m = /^\s*\d+[.)]\s+(.*)$/.exec(line))) { endPara(); if (list !== 'ol') { endList(); out += '<ol>'; list = 'ol'; } out += '<li>' + inline(m[1]) + '</li>'; }
+    else if ((m = LI.exec(line))) {
+      endPara();
+      const type = /\d/.test(m[2]) ? 'ol' : 'ul', n = parseInt(m[2], 10);
+      const { closed, opened } = nest(stack, m[1].replace(/\t/g, '    ').length, type);
+      for (const t of closed) out += '</li></' + t + '>';
+      out += opened ? '<' + type + (type === 'ol' && n > 1 ? ` start="${n}"` : '') + '>' : '</li>';
+      out += '<li>' + inline(task(m[3]));
+    }
     else if ((m = /^>\s?(.*)$/.exec(line))) { endPara(); endList(); out += '<blockquote>' + inline(m[1]) + '</blockquote>'; }
     else { endList(); para.push(line.trim()); }
   }
@@ -238,6 +272,50 @@ function md(src) {
   endTable(); endPara(); endList();
   return out;
 }
+function wikiInline(s) {
+  const keep = [], put = v => '\u0000' + (keep.push(v) - 1) + '\u0000';
+  const emph = t => t
+    .replace(/\*\*([^*]+)\*\*/g, '\u0001$1\u0001')
+    .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1_$2_')
+    .replace(/\u0001/g, '*');
+  return emph(s
+    .replace(/`([^`]+)`/g, (_, c) => put('{{' + c + '}}'))
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, t, u) => put('[' + emph(t).replace(/[|\]]/g, ' ') + '|' + u + ']'))
+    .replace(/[[\]{}]/g, '\\$&'))
+    .replace(/\u0000(\d+)\u0000/g, (_, i) => keep[i]);
+}
+// Line-based like md(): `*`/`_` in plain text and `}` inside inline code are not escaped.
+function wiki(src) {
+  const out = [], stack = []; let fence = false, table = null, blank = false;
+  const endTable = () => {
+    const rows = table.map(cells), sep = rows.length > 1 && isSep(rows[1]);
+    const row = (r, d) => d + r.map(c => wikiInline(c.replace(/\|/g, '\\|')) || ' ').join(d) + d;
+    if (sep) out.push(row(rows[0], '||'));
+    for (const r of rows.slice(sep ? 2 : 0)) out.push(row(r, '|'));
+    table = null;
+  };
+  for (const line of String(src || '').replace(/\r\n?/g, '\n').split('\n')) {
+    if (fence) { if (/^```/.test(line)) { out.push('{code}'); fence = false; } else out.push(line); continue; }
+    if (table && !/^\s*\|/.test(line)) endTable();
+    if (!line.trim()) { if (stack.length) blank = true; else out.push(''); continue; }
+    const item = LI.exec(line); let m;
+    if (blank && !item) { out.push(''); stack.length = 0; }   // the list really ended; a blank between items is dropped so numbering continues
+    blank = false;
+    if (/^```/.test(line)) { stack.length = 0; fence = true; out.push('{code}'); }   // no language: Jira rejects unknown ones
+    else if (/^\s*\|/.test(line)) { stack.length = 0; (table ||= []).push(line); }
+    else if ((m = /^(#{1,4})\s+(.*)$/.exec(line))) { stack.length = 0; out.push(`h${m[1].length}. ` + wikiInline(m[2])); }
+    else if (item) {
+      nest(stack, item[1].replace(/\t/g, '    ').length, /\d/.test(item[2]) ? 'ol' : 'ul');
+      out.push(stack.map(s => s.type === 'ol' ? '#' : '*').join('') + ' ' + wikiInline(task(item[3])));
+    }
+    else if ((m = /^>\s?(.*)$/.exec(line))) { stack.length = 0; out.push('bq. ' + wikiInline(m[1])); }
+    else { stack.length = 0; out.push(wikiInline(line.trim())); }
+  }
+  if (fence) out.push('{code}');
+  if (table) endTable();
+  return out.join('\n');
+}
+/* pure:end */
 const mdEl = src => h('div', { class: 'md', html: md(src) });
 
 /* ---------- saving (one small patch at a time, debounced for typing) ---------- */
@@ -352,27 +430,64 @@ function splitSections(src) {
   return out.filter(s => s.title || s.lines.join('').trim()).map(s => ({ title: s.title, body: s.lines.join('\n').trim() }));
 }
 
-async function copyText(text, what) {
-  try { await navigator.clipboard.writeText(text); }
-  catch { const t = h('textarea', { value: text }); document.body.append(t); t.select(); document.execCommand('copy'); t.remove(); }
-  say(what + ' copied.');
+async function copyText(text, what, html) {
+  try {
+    if (html && window.ClipboardItem && navigator.clipboard?.write)
+      await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([text], { type: 'text/plain' }) })]);
+    else await navigator.clipboard.writeText(text);
+  } catch {
+    const t = h('textarea', { value: text }); document.body.append(t); t.select();
+    const put = e => { e.clipboardData.setData('text/plain', text); if (html) e.clipboardData.setData('text/html', html); e.preventDefault(); };
+    document.addEventListener('copy', put);
+    let ok = false; try { ok = document.execCommand('copy'); } catch {}
+    document.removeEventListener('copy', put); t.remove();
+    if (!ok) { say('Copy failed: open "Show copy text", select it and press Ctrl+C.', true); return false; }
+  }
+  say(what + ' copied.'); return true;
+}
+
+/* Jira copy (content.copy == "jira"): Cloud = rich HTML + Markdown text, Wiki = Server/DC wiki markup. */
+let jiraFmt = 'cloud';
+try { if (localStorage.jiraFmt === 'wiki') jiraFmt = 'wiki'; } catch {}
+const jiraText = src => jiraFmt === 'wiki' ? wiki(src) : src;
+async function jiraCopy(src, what, btn) {
+  if (!await copyText(jiraText(src), what, jiraFmt === 'wiki' ? null : md(src))) { const r = $('#raw'); if (r) r.open = true; return; }
+  const label = btn.textContent;
+  btn.textContent = 'Copied';
+  setTimeout(() => { btn.textContent = label; }, 1500);
 }
 
 function reportBody(c, app) {
   const secs = splitSections(c.understanding);
   const hasDetail = secs.some(s => /^details?\b/i.test(s.title));
+  const jira = c.copy === 'jira';
+  const desc = jira ? secs.filter(s => s.title).map(s => '## ' + s.title + '\n\n' + s.body).join('\n\n') : '';
+  const title = jira ? (/^#\s+(.+)$/m.exec(secs.find(s => !s.title)?.body || '') || [])[1] || '' : '';
+  const setFmt = f => {
+    jiraFmt = f;
+    try { localStorage.jiraFmt = f; } catch {}
+    $('#f-cloud').setAttribute('aria-pressed', String(f === 'cloud'));
+    $('#f-wiki').setAttribute('aria-pressed', String(f === 'wiki'));
+    $('#raw-text').value = jiraText(desc);
+  };
   const tools = h('div', { class: 'toolbar' },
     h('button', { class: 'btn', onclick: () => document.querySelectorAll('section.rep > details').forEach(d => d.open = true) }, 'Expand all'),
     h('button', { class: 'btn', onclick: () => document.querySelectorAll('section.rep > details').forEach(d => d.open = false) }, 'Collapse all'),
     hasDetail ? h('button', { class: 'btn', id: 't-detail', 'aria-pressed': String(detailOn), onclick: () => setDetail(!detailOn) }, 'Show details') : null,
-    h('button', { class: 'btn', onclick: () => copyText(c.understanding || '', 'Report') }, 'Copy as Markdown'),
+    jira && title ? h('button', { class: 'btn', onclick: () => copyText(title, 'Title') }, 'Copy title') : null,
+    jira ? h('button', { class: 'btn', onclick: e => jiraCopy(desc, 'Story', e.currentTarget) }, 'Copy description')
+      : h('button', { class: 'btn', onclick: () => copyText(c.understanding || '', 'Report') }, 'Copy as Markdown'),
+    jira ? h('button', { class: 'btn', id: 'f-cloud', 'aria-pressed': String(jiraFmt === 'cloud'), onclick: () => setFmt('cloud') }, 'Jira Cloud') : null,
+    jira ? h('button', { class: 'btn', id: 'f-wiki', 'aria-pressed': String(jiraFmt === 'wiki'), onclick: () => setFmt('wiki') }, 'Wiki markup (Server/DC)') : null,
     h('button', { class: 'btn', onclick: () => window.print() }, 'Print'));
   app.append(tools);
+  if (jira) app.append(h('details', { class: 'raw', id: 'raw' }, h('summary', null, 'Show copy text'), h('textarea', { id: 'raw-text', readonly: true, rows: 14, value: jiraText(desc) })));
   for (const s of secs) {
     const tldr = /^tl;?dr\b/i.test(s.title), detail = /^details?\b/i.test(s.title);
     if (!s.title) { app.append(h('div', { class: 'md' }, mdEl(s.body))); continue; }
     const slug = s.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section';
     app.append(h('section', { id: 's-' + slug, class: 'rep' + (tldr ? ' tldr' : '') + (detail ? ' tier-detail' : ''), 'data-label': tldr ? 'TL;DR' : s.title },
+      jira ? h('button', { class: 'scopy', 'aria-label': 'Copy ' + s.title, onclick: e => jiraCopy(s.body, s.title, e.currentTarget) }, 'Copy') : null,
       h('details', { open: true }, h('summary', null, s.title), mdEl(s.body))));
   }
   const links = (c.reports || []).map(n => h('a', { href: `${base}/report/${encodeURIComponent(n)}`, target: '_blank', rel: 'noopener' }, 'Open full ' + n));
