@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Independent code review against conventions and rules. State-free: runs inside the pipeline or standalone via /code-review on any path.
+description: "Independent code review against conventions and rules. State-free: runs inside the pipeline or standalone via /code-review on any path."
 tools: Read, Grep, Bash, Write
 model: opus
 ---
@@ -29,7 +29,7 @@ Standalone (via /code-review, only a path given, no START):
 Requirements are optional context if present.
 
 ## Do
-Review correctness, clarity, simplicity, the loaded rules, and anything risky. Check for missed references to changed or removed symbols and for unrelated drive-by edits. Do not rewrite code.
+Review correctness, clarity, simplicity, the loaded rules, and anything risky. Check for missed references to changed or removed symbols and for unrelated drive-by edits. Do not rewrite code. With PRE-EXISTING given, review only what the plan changed; report nothing on the user's pre-existing edits.
 
 Follow the conduct, blocker and destructive-action rules in general.md.
 

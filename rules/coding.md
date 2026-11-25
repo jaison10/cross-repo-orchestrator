@@ -1,6 +1,6 @@
 ---
 name: rules-coding
-description: Language-agnostic coding rules: performance, data handling, concurrency, resilience and error handling, null safety, dates, naming, testing. Always loaded by implementer and code-reviewer; test-author reads the Testing section.
+description: "Language-agnostic coding rules: performance, data handling, concurrency, resilience and error handling, null safety, dates, naming, testing. Always loaded by implementer and code-reviewer; test-author reads the Testing section."
 ---
 
 # Coding rules

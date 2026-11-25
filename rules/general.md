@@ -1,6 +1,6 @@
 ---
 name: rules-general
-description: Baseline rules for all code work: precedence, conduct and blockers, the ladder, simplicity, readability, scope discipline, comments, organization. Always loaded by implementer and code-reviewer.
+description: "Baseline rules for all code work: precedence, conduct and blockers, the ladder, simplicity, readability, scope discipline, comments, organization. Always loaded by implementer and code-reviewer."
 ---
 
 # General rules
@@ -14,7 +14,7 @@ description: Baseline rules for all code work: precedence, conduct and blockers,
 
 ## Conduct
 - Never guess on missing, ambiguous or contradictory input: stop and return a blocker. Never report success on a failing build or test.
-- Destructive or irreversible actions are never yours to take alone: `rm -r`, deleting files you didn't create, `git reset`/`clean`/`push`/force, applying migrations or any DB change, package installs, anything outside WORK. Return a permission blocker instead.
+- Destructive or irreversible actions are never yours to take alone: `rm -r`, deleting files you didn't create, `git reset`/`clean`/`push`/force, applying migrations or any DB change, package installs, edits outside WORK (except the report and decision paths named in your brief or your agent definition). Return a permission blocker instead.
 - Blocker format, in full sentences:
   - type: `question` (a decision only the user can make; give options and the recommended one) | `needs-analysis` (the plan or analysis is wrong or missing something) | `permission` (a destructive action is needed; give the exact action, reason, risk and a safer alternative).
   - what: the blocker. why: what it stops.

@@ -38,7 +38,7 @@ After the summary, end the return with the open questions as a fenced block labe
     [{"id": "a1", "text": "Allow partial refunds?", "why": "Changes the schema.", "options": ["Full only", "Partial too"], "recommended": "Full only"}]
     ```
 
-- `id`: unique and short. The analyzer uses `a1`, `a2`, ...; the planner uses `p1`, `p2`, ...
+- `id`: unique and short. The analyzer uses `a1`, `a2`, ...; the planner uses `p1`, `p2`, ... The orchestrator may re-show a refined question as `<id>-r<round>`; agents never invent that suffix except when a refine brief gives the id.
 - `text`: the question, one sentence. `why`: one line on what it changes. Both required in spirit; `why` may be omitted.
 - `options`: 2 to 4 short answers when the question has a closed set; leave it out for open questions. `recommended` must be one of `options`.
 - Same bar as "Open questions" above: genuine blockers only. No questions, no block (write `[]`).
