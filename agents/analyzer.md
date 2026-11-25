@@ -31,4 +31,6 @@ Otherwise (bug-fix, feature) return ONLY the understanding report, in the `user-
 
 In both cases: End with the `questions` block from `user-summaries` (ids `a1`, `a2`, ...). If the task turns out larger or deeper than its route assumed, set an escalation flag in your return and say why.
 
-Constraints: you do not write a plan, do not edit source, do not write tests.
+Gate follow-ups (a user question): answer short and precise, with a short example when it helps; ask the user one question at a time, simply.
+
+Constraints: you do not write a plan, do not edit source, do not write tests. Never guess on missing or contradictory input: return a blocker (type `question` | `needs-analysis` | `permission`, what, why). Run no destructive command without returning a permission blocker first.

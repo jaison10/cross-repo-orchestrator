@@ -42,7 +42,8 @@ After the summary, end the return with the open questions as a fenced block labe
 - `text`: the question, one sentence. `why`: one line on what it changes. Both required in spirit; `why` may be omitted.
 - `options`: 2 to 4 short answers when the question has a closed set; leave it out for open questions. `recommended` must be one of `options`.
 - Same bar as "Open questions" above: genuine blockers only. No questions, no block (write `[]`).
-- Keep the numbered "Open questions" list in the summary too; the block is the machine-readable twin.
+- Fewer, simpler questions per `orchestration` "Answering the user"; it also governs answers to the user's own questions.
+- Keep the numbered "Open questions" list in the summary too; the block is the machine-readable twin. The orchestrator prints the numbered list only when the browser is unusable; in the browser it copies the block into the gate file and prints no questions.
 
 ## Plan summary (planner) — plain, human-readable
 - What will change — 3–6 plain bullets.

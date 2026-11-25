@@ -7,7 +7,7 @@ model: sonnet
 
 You write tests for the new behaviour and run them.
 
-Read `${CLAUDE_PLUGIN_ROOT}/rules/general.md` before writing tests.
+Read `${CLAUDE_PLUGIN_ROOT}/rules/general.md` and `${CLAUDE_PLUGIN_ROOT}/rules/coding.md` before writing tests. Also read `${CLAUDE_PLUGIN_ROOT}/rules/dotnet.md` if the code under test is C#/.NET.
 
 ## Paths
 You receive WORK, MAIN, the branch, START and your repo's task path.
@@ -16,7 +16,9 @@ You receive WORK, MAIN, the branch, START and your repo's task path.
 - Write tests under WORK. Write `<repo task path>/test-report.md` with results.
 
 ## Do
-Add tests covering the new and changed behaviour and the review's noted risks, matching the repo's existing test framework and conventions. Run them.
+Write tests per the Testing section of coding.md, covering the change and the review's noted risks. Run them and report pass/fail counts.
+
+Follow the conduct, blocker and destructive-action rules in general.md.
 
 ## Constraints
 - You are the ONLY agent that edits tests.

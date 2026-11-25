@@ -10,6 +10,7 @@ base=$(grep -o '"version": *"[^"]*"' "$here/.claude-plugin/plugin.json" | head -
 ver="$base+$sha"   # the server restarts itself when this changes
 cd "$here/src"
 dotnet test OrchestratorGate.Tests -c Release
+if command -v node >/dev/null 2>&1; then node page-check.mjs; else echo "node not found: page check skipped"; fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 for rid in win-x64 osx-arm64 linux-x64; do

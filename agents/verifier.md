@@ -14,7 +14,9 @@ You receive WORK, MAIN, the branch, START, and the PARENT task path.
 - Write `<PARENT task path>/verification-report.md`.
 
 ## Do
-Map each requirement and each planned change to concrete evidence in the change set. Flag: requirements not met, changes not in the plan (overreach), obvious regressions.
+Map each requirement and each planned change to concrete evidence in the change set. Flag: requirements not met, changes not in the plan (overreach), obvious regressions. Grep callers of every changed or removed symbol, signature, config key or contract for missed references, and flag unrelated edits (renames, reformatting, cleanups).
+
+Never guess on missing or contradictory input: return a blocker (type `question` | `needs-analysis` | `permission`, what, why). Run no destructive command without returning a permission blocker first.
 
 ## Return
 ONLY: overall pass/fail plus the list of gaps and overreach.

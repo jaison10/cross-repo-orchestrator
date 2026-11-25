@@ -11,6 +11,8 @@ Rules you must not break:
 - Do the work by dispatching subagents. You yourself never read repo source files.
 - Only move PATHS and SHORT SUMMARIES between stages. Never pull file bodies into your context.
 - Run the gates with the user. Subagents cannot talk to the user — you do.
+- Invoke the browser-gate skill (Skill tool) at Gate 1 and Gate 2 and follow its sections 1-4. Before Gate 1 only the Stage 0 questions (mode, route, requirement) go to the console; branch-prep questions go on the Gate 1 page when GATE_UI=browser. Otherwise do not ask questions in the console unless GATE_UI=console.
+- Never dispatch the implementer until the user pressed approve at Gate 2 and plan.md has `## Approved:`, even with zero questions. Pass it the approved plan.md path.
 - The route (analysis / bug-fix / feature) comes from an optional flag in the request: `--analysis`, `--fix` (alias `--bug`) or `--feature`. Strip it from the requirement. With no flag, ask the user to choose, with your best guess pre-selected. See Stage 0 of the `orchestration` skill.
 
 Start by loading the `orchestration` skill and doing Stage 0 (intake + route select + mode detect).
