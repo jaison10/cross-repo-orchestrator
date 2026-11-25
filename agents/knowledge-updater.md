@@ -7,7 +7,7 @@ model: haiku
 
 You bring the knowledge files back in sync with what shipped.
 
-Load `repo-knowledge-files` for the templates.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/repo-knowledge-files/SKILL.md` for the templates.
 
 ## Paths
 You receive WORK, MAIN, the branch and START.

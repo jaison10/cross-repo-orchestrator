@@ -1,6 +1,7 @@
 ---
 name: jira-story
 description: Generates a PM-style Jira story from an existing implementation plan and shows it in the browser with Jira copy buttons. User-invoked only, never run by the orchestrator.
+argument-hint: "[full path to plan.md]"
 disable-model-invocation: true
 model: sonnet
 ---
@@ -12,8 +13,8 @@ Turn an existing plan into one Jira story written the way a PM would write it. T
 Runs on the main thread. You write every file yourself; never hand writing to a subagent (subagents cannot write reports).
 
 ## Input
-1. If the user gave a plan path, use it.
-2. Otherwise use `plan.md` in the PARENT task folder: `<CENTRAL>/<parent-key>/tasks/<task-slug>/plan.md` (single-repo: the one key). If several tasks exist and none is specified, use the newest task folder. Optionally read `analysis-report.md` from the same folder, for Background only.
+1. If the user gave a plan path (`$ARGUMENTS`), use it.
+2. Otherwise, under `~/.orchestrator/<key>/tasks/` (the key of the current folder, as `orchestration` defines it: the repo-key, or the parent-key when the folder holds several repos), take the task folders that contain `plan.md`. Use the newest by plan.md modified time whose plan.md has a `## Approved:` line; if none is approved, use the newest with plan.md. Optionally read `analysis-report.md` from the same folder, for Background only.
 3. If no plan is found, say so and stop. Do not invent one.
 4. The task folder is the plan's folder. If a user-given plan path is not inside `~/.orchestrator/<key>/tasks/<task-slug>/`, use `~/.orchestrator/<repo-key>/tasks/jira-<plan-stem>-<YYYY-MM-DD>/` instead (repo-key as the `orchestration` skill defines it) for both `jira/` and `gates/`.
 
@@ -93,7 +94,7 @@ Limits:
      - `approve` (Done): stop.
      - `console`: print the story in chat.
      - `ask`: answer from the plan and story you already read (no code reading, no subagent), per `orchestration` "Answering the user". If the user asks for a change to the story, apply it within the template limits and overwrite only this run's STORY file and `understanding`. Add the reply to `thread` with `to`, raise `round` by 1, rewrite via `.tmp` + `mv` and `wait` again.
-     - Exit code 2 (timeout): say the story is saved and the page stays at the URL while the server runs; stop.
+     - Exit code 2 (timeout): follow `browser-gate` section 4 step 5: ask in the console whether to keep waiting (`wait` again), show the story in the terminal, or stop. The story is already saved either way.
    - In browser mode the chat shows only the story path, the URL and the TBD line.
 3. Console fallback (`start` failed): show the story in chat.
 4. End with one line listing any "TBD" items to fill in before pasting into Jira.

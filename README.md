@@ -39,7 +39,7 @@ Runs the code-reviewer alone, with no pipeline state. No path: the current folde
 
 ### `/orch:jira-story`
 
-Plan path is optional. Turns an existing `plan.md` into one PM-style Jira story and shows it as a report page, with Copy buttons per section and for the whole description, in Jira Cloud (rich text) or wiki markup (Server/DC) format. The orchestrator never calls it. With no path it uses `plan.md` (and `analysis-report.md` for Background) from the newest task folder of the current repo, and stops with "no plan found" if there is none. Pass a path only to pick a different task. A bare `plan.md` is not resolved; give the full path. A plan outside `~/.orchestrator/<key>/tasks/<task-slug>/` uses `~/.orchestrator/<repo-key>/tasks/jira-<plan-stem>-<YYYY-MM-DD>/`. Earlier stories are never overwritten (`-2`, `-3`, ...).
+Plan path is optional. Turns an existing `plan.md` into one PM-style Jira story and shows it as a report page, with Copy buttons per section and for the whole description, in Jira Cloud (rich text) or wiki markup (Server/DC) format. The orchestrator never calls it. With no path it uses `plan.md` (and `analysis-report.md` for Background) from the newest task folder of the current repo that has a `plan.md`, preferring an approved one, and stops with "no plan found" if there is none. Pass a path only to pick a different task. A bare `plan.md` is not resolved; give the full path. A plan outside `~/.orchestrator/<key>/tasks/<task-slug>/` uses `~/.orchestrator/<repo-key>/tasks/jira-<plan-stem>-<YYYY-MM-DD>/`. Earlier stories are never overwritten (`-2`, `-3`, ...).
 
 ```
 /orch:jira-story
@@ -57,6 +57,18 @@ In Claude Code:
 /reload-plugins
 ```
 
+### Update
+
+```
+/plugin marketplace update repo-orchestrator-marketplace
+/plugin update orch@repo-orchestrator-marketplace
+/reload-plugins
+```
+
+If `/plugin update` is not available, run `/plugin uninstall orch@repo-orchestrator-marketplace`, then `/plugin install orch@repo-orchestrator-marketplace`, then `/reload-plugins`. Updating brings the prebuilt binaries; there is nothing to build.
+
+Optional: agents save reports under `~/.orchestrator/`. If you are asked to approve those writes, allow them once by adding `"Edit(~/.orchestrator/**)"` to `permissions.allow` in `~/.claude/settings.json`, or for one session run `/add-dir ~/.orchestrator` (expand `~`). Runs work without this.
+
 Nothing else to install. The browser page is served by a small binary that ships inside the plugin (Windows x64, macOS Apple silicon, Linux x64 including WSL) and carries its own runtime.
 
 ## How it works
@@ -65,7 +77,7 @@ The orchestrator is the main thread (your session model). It never reads repo so
 
 ### Stage 0 and Gate 1: setup and your first approval
 
-**What this stage does:** before any analysis, it works out *what kind of job this is*, *which repos are involved*, and *where the changes will be made*. Nothing is changed in your repos until you approve on the Gate 1 page.
+**What this stage does:** before any analysis, it works out *what kind of job this is*, *which repos are involved*, and *where the changes will be made*. Nothing is changed in your repos until you confirm at Gate 1 (one repo: in the terminal; several repos: a browser page).
 
 ```mermaid
 flowchart TD
@@ -82,8 +94,10 @@ flowchart TD
     I -- "yes" --> J["Discovery agent (haiku) suggests<br/>which repos the request touches.<br/>Looks at repo names and notes only, not code"]
     I -- "no" --> K
     J --> K["Read-only check of each repo:<br/>uncommitted changes? merge in progress?<br/>branch name already used?"]
-    K -- "problem Claude cannot decide for you<br/>(merge in progress, detached HEAD,<br/>branch open in another worktree)" --> X["Run stops. Claude tells you<br/>in the terminal what to fix"]
-    K --> L["GATE 1 page: confirm repos,<br/>pick new branch or stay on yours,<br/>and for new branches with uncommitted changes<br/>choose Keep, Stash or Worktree"]
+    K -- "problem Claude cannot decide for you<br/>(merge in progress, detached HEAD)" --> X["Run stops. Claude tells you<br/>in the terminal what to fix"]
+    K --> L["GATE 1: one repo: questions in the terminal, one at a time;<br/>several repos: a browser page.<br/>New branch or stay, and for a new branch<br/>with uncommitted changes Keep, Stash or Worktree"]
+    K -- "same task again, on its branch" --> R["Resume on that branch<br/>(or in its worktree). No questions"]
+    R --> M
     L --> M{"Job type"}
     M -- "analysis" --> N["Only fetch from the remote and warn<br/>if your copy is behind. No branch is made"]
     M -- "bug-fix / feature" --> O["New branch (or worktree) is created,<br/>or Claude stays on your branch.<br/>Next: analysis"]
@@ -93,9 +107,10 @@ flowchart TD
 
 | Term | Meaning |
 |---|---|
-| Browser or terminal | Approvals open as pages from a local server (port 4402), or in the terminal when `ui` is `console`, you are on SSH, or the server cannot start (Claude says why once). |
-| New branch / Stay | Per repo. **New branch** (recommended) starts fresh from the remote base, taking your uncommitted changes along. **Stay** works on your current branch as it is; the page warns you if that is the base (like master). |
+| Browser or terminal | Approvals open as pages from a local server (port 4402), or in the terminal when `ui` is `console`, you are on SSH, or the server cannot start (Claude says why once). Gate 1 for a single repo is always in the terminal. |
+| New branch / Stay | Per repo. **New branch** (recommended) starts fresh from the remote base, taking your uncommitted changes along. **Stay** works on your current branch as it is; Claude warns you if that is the base (like master). |
 | Keep / Stash / Worktree | For a new branch over uncommitted changes. **Keep** carries them over, **Stash** sets them aside (`git stash pop` restores them), **Worktree** makes the branch in a separate folder and leaves yours untouched. |
+| Resume | Running the same task again while on its branch (or its worktree) continues there: no branch question, uncommitted changes stay, start point = where the branch left the base. |
 | Work folder, main folder, start point | Agent terms: where code is edited (your repo or the worktree), your main repo folder, and the commit the new branch starts from (usually `origin/<base branch>`; the current commit when you stay). |
 
 ### Stages after Gate 1: analyze, plan, approve, build, check
@@ -213,7 +228,7 @@ Answers to your questions are short and to the point: a word or a sentence when 
 
 ## Browser gates
 
-At Gate 1 (repos and branches) and Gate 2 (plan) the orchestrator opens a local page. The page title tells you where you are: `Gate 1 · ...`, `Gate 2 · ...`, `Blocker · ...` or `Report · ...`. The page shows:
+At Gate 1 (several repos: repos and branches) and Gate 2 (plan) the orchestrator opens a local page. The page title tells you where you are: `Gate 1 · ...`, `Gate 2 · ...`, `Blocker · ...` or `Report · ...`. The page shows:
 
 - what Claude understood, with its assumptions
 - the effective repos, why each is in scope, and what to do with uncommitted changes (keep, stash, worktree)
@@ -223,7 +238,7 @@ At Gate 1 (repos and branches) and Gate 2 (plan) the orchestrator opens a local 
 
 Choose **Approve & continue**, **Request changes** (Claude revises and shows a new round) or **Answer in console instead**. The terminal resumes when you submit; closing the tab changes nothing and the gate stays open at the same URL. Approve stays disabled until every question is answered and every uncommitted-changes repo has a decision. After 30 idle minutes the terminal asks whether to keep waiting.
 
-The page falls back to the console on its own when the browser UI is off, you are on an SSH session, or the server cannot start. Gates 3 and 4 are always in the console.
+The page falls back to the console on its own when the browser UI is off, you are on an SSH session, or the server cannot start. Gates 3 and 4 are always in the console, and so is Gate 1 for a single repo.
 
 ### Gate server CLI
 
@@ -259,22 +274,24 @@ In the commands below, `GATE` is the full path of the binary for your platform, 
 - `ui` is `console`: `GATE set ui browser`.
 - SSH session (`SSH_CONNECTION` set): console is expected; run Claude Code locally for the page.
 - `start` failed: Claude prints its exact error. `port 4402 is in use by another program` means set another port: `GATE set port 4410`. `the server did not start` means read `~/.orchestrator/server.log`.
-- Old plugin version cached (page lacks newer features): update the plugin, then `/reload-plugins`. A running server on an older version is replaced on the next `start`. Check with `GATE version` and `GATE status`.
+- Old plugin version cached (page lacks newer features): update the plugin (see Install, Update). A running server on an older version is replaced on the next `start`. Check with `GATE version` and `GATE status`.
 - The page did not open: the URL is printed in the terminal; open it yourself (or `browser` is `false`).
+
+**Gate 1 asked in the terminal, not the page.** Expected for a single repo: its questions are few, so Claude asks them one at a time in the terminal. Several repos use the page.
 
 **Gate 2 was skipped.** The implementer must never run before you approve Gate 2, on bug-fix too. Without `## Approved:` in `plan.md` the implementer returns a blocker. Tell Claude: "Show Gate 2 for plan.md before implementing." The analysis route has no Gate 2 by design (its report page is the only approval-style page).
 
 **A question asked on the page got no answer.** The `wait` behind the page timed out (30 idle minutes, exit code 2) or the run ended, so nothing is listening. Tell Claude "continue the gate" (it re-runs `GATE wait <gate-file> --round <N>`); the page keeps its state at the same URL. Raise the timeout with `GATE set idleMinutes 60`.
 
-**Rebuilding fails because the binary is locked (Windows).** The running server holds `orchestrator-gate.exe`. Stop it, then build:
+**Rebuilding fails because the binary is locked (Windows, developers only).** The running server holds `orchestrator-gate.exe`. Stop it, then build:
 ```
 GATE stop
 bash ./build
 ```
 
-**Jira copy buttons missing on `/orch:jira-story`.** The page is embedded in the binary; committed binaries older than the page change do not have them. Rebuild (`GATE stop`, then `bash ./build`), or update the plugin to a version whose binaries include it.
+**Jira copy buttons missing on `/orch:jira-story`.** The page is embedded in the binary; committed binaries older than the page change do not have them. Update the plugin (see Install, Update). Developers: `GATE stop`, then `./build`.
 
-**Re-analyse with my answers button missing on the analysis report.** Same cause: the page is embedded in the binary, and binaries built before this feature lack it. The report must also have at least one answered question, and it only exists on analysis reports (not `/orch:show` or the Jira story). Rebuild as above.
+**Re-analyse with my answers button missing on the analysis report.** Same cause: the page is embedded in the binary, and binaries built before this feature lack it. The report must also have at least one answered question, and it only exists on analysis reports (not `/orch:show` or the Jira story). Update the plugin (see Install, Update). Developers: `GATE stop`, then `./build`.
 
 **A follow-up question is never answered.** Claude only sees your question while a `wait` is running, and `wait` gives up after 30 idle minutes. Tell Claude in the terminal: "I asked a follow-up on the page, please answer it", and it will read it and reopen the page.
 
@@ -282,16 +299,16 @@ bash ./build
 
 **PowerShell-only shell.** Claude runs the binary as `& "<skill base dir>\dist\win-x64\orchestrator-gate.exe" <command>`. It uses Bash when available and PowerShell only when not.
 
-**A subagent could not write its report file.** Reports go to `~/.orchestrator/`, outside the project, and subagents cannot ask you for permission. Allow the folder for the session with `/add-dir ~/.orchestrator` (expand `~`) and re-run the stage.
+**A subagent could not write its report file.** Subagents cannot answer permission prompts. The run still works: the agent returns the report text and Claude saves it to the same path, which may ask you once. To avoid the prompt, use the optional setup line under Install.
 
 **Stash or worktree conflicts.**
-- Keep: if the switch would overwrite files, Claude stashes, switches, then pops. If the pop conflicts, it stops, lists the files and keeps the stash entry. Resolve the files, then `git stash list` and `git stash drop <entry>` once you no longer need it.
+- Keep: if switching would overwrite your files, nothing is changed and Claude asks again: Stash or Worktree.
 - Worktree: if the worktree folder already exists, Claude asks. The new folder lacks ignored files (`node_modules`, `bin/obj`, `.env`); restore or build there. If it is outside the launch folder, run `/add-dir <worktree folder>`.
 - After merging: `git worktree remove <path>`.
 
 **Branch already exists / checked out in another worktree.**
 - Exists, not checked out: Gate 1 asks to reuse it or create `<branch>-2`.
-- Checked out in another worktree: the run stops in the console. Find it with `git worktree list`, then switch that worktree to another branch or `git worktree remove <path>`, and re-run.
+- Checked out in another worktree: Claude resumes the task in that worktree. If it is outside the launch folder, run `/add-dir <worktree folder>`. To start fresh instead, `git worktree remove <path>` and re-run.
 - BLOCKED (merge or rebase in progress, or detached HEAD): finish or abort it (`git merge --abort`, `git rebase --abort`) or `git switch <branch>`, then re-run.
 
 **Missing `## Branching` block.** Gate 1 asks `base`, `remote` and whether to save the block. Choose "Add to CLAUDE.md", or add it yourself to the repo's CLAUDE.md:

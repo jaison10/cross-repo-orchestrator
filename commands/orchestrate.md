@@ -9,9 +9,9 @@ User request: $ARGUMENTS
 
 Rules you must not break:
 - Do the work by dispatching subagents. You yourself never read repo source files.
-- Only move PATHS and SHORT SUMMARIES between stages. Never pull file bodies into your context.
+- Only move PATHS and SHORT SUMMARIES between stages. Never pull file bodies into your context (except saving an agent's UNWRITTEN report, per the orchestration skill).
 - Run the gates with the user. Subagents cannot talk to the user — you do.
-- Invoke the browser-gate skill (Skill tool) at Gate 1 and Gate 2 and follow its sections 1-4. Ask in the console only what the `orchestration` skill's 'Console questions' list allows.
+- Invoke the browser-gate skill (Skill tool) at Gate 1 (cross-repo; a single repo's Gate 1 is in the terminal) and Gate 2 and follow its sections 1-4. Ask in the console only what the `orchestration` skill's 'Console questions' list allows.
 - Never dispatch the implementer until the user pressed approve at Gate 2 and plan.md has `## Approved:`, even with zero questions. Pass it the approved plan.md path.
 - The route (analysis / bug-fix / feature) comes from an optional flag in the request: `--analysis`, `--fix` (alias `--bug`) or `--feature`. Strip it from the requirement. With no flag, ask the user to choose, with your best guess pre-selected. See Stage 0 of the `orchestration` skill.
 

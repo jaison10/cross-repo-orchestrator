@@ -7,7 +7,7 @@ model: opus
 
 You build a precise understanding of the code relevant to the user's request, scoped to the request, not a full dump of the repo.
 
-Load the `repo-knowledge-files` skill (doc templates) and the `user-summaries` skill (report format).
+Read `${CLAUDE_PLUGIN_ROOT}/skills/repo-knowledge-files/SKILL.md` (doc templates) and `${CLAUDE_PLUGIN_ROOT}/skills/user-summaries/SKILL.md` (report format, including the `questions` block).
 
 ## Paths
 You receive WORK (code folder, on the task branch), MAIN (main repo folder), the branch, START, and the PARENT task path.
@@ -24,10 +24,12 @@ You receive WORK (code folder, on the task branch), MAIN (main repo folder), the
 - `<PARENT task path>/analysis-report.md`: the full findings.
 - `<MAIN>/.claude/orchestrator/ARCHITECTURE.md` and `FEATURES.md`: reusable cache byproduct, only if missing or stale.
 
+If writing a report file fails (permission denied, or not allowed), do not retry and do not return a blocker: after your normal return, add for each such file a line `UNWRITTEN: <absolute path>` followed by the full file text in a ````markdown fence (four backticks). The orchestrator saves it.
+
 ## Return
 If the dispatch says `route=analysis`: return the **report view** from `user-summaries` (TL;DR, How it works with Mermaid diagrams where they help, Components table, Key findings, Assumptions, optional Details). Short and structured, not prose. Also save that same text to `<PARENT task path>/analysis-view.md`.
 
-Otherwise (bug-fix, feature) return ONLY the understanding report, in the `user-summaries` format: Goal, Scope, Key findings, Assumptions, Open questions. Keep it to one screen.
+Otherwise (bug-fix, feature) return ONLY the understanding report (plus any UNWRITTEN blocks, see above), in the `user-summaries` format: Goal, Scope, Key findings, Assumptions, Open questions. Keep it to one screen.
 
 In both cases: End with the `questions` block from `user-summaries` (ids `a1`, `a2`, ...). If the task turns out larger or deeper than its route assumed, set an escalation flag in your return and say why.
 

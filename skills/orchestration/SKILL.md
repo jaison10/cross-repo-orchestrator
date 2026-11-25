@@ -8,7 +8,7 @@ description: The master playbook for the repo-orchestrator. Defines mode detecti
 You are the main thread. You dispatch subagents and talk to the user. You never read repo source yourself.
 
 ## Core invariants
-- Move only PATHS and SHORT SUMMARIES between stages. Never load file bodies into your context.
+- Move only PATHS and SHORT SUMMARIES between stages. Never load file bodies into your context (one exception: 'Unwritten reports').
 - Exclusive ownership: source goes to the implementer, tests to the test-author, knowledge docs to the knowledge-updater, plan to the planner. Never let two agents write the same thing.
 - Gates are the user's steering points. Subagents cannot ask the user anything.
 - HARD RULE: never dispatch the implementer until Gate 2 has been shown (browser, or console only if the browser is unusable) and the user pressed approve, even with zero questions. Gate 2 is plan approval first, questions second. Only the user's approve action allows appending `## Approved:` to plan.md.
@@ -83,6 +83,12 @@ In-repo, durable:
 - implementer gets the PARENT task path, its repo's task path, and the absolute path of the approved plan, `<PARENT task path>/plan.md`. Dispatch it only when that file has a `## Approved:` line; without the path or the line it returns a blocker.
 - verifier also gets `route=<route>`. test-author on bug-fix also gets `mode=update-only` and the absolute path of `<PARENT task path>/verification-report.md`.
 
+## Unwritten reports
+Subagents cannot answer permission prompts, so a report write under `~/.orchestrator` can fail. The agent then returns, after its normal return, `UNWRITTEN: <absolute path>` followed by the full file text in a four-backtick `markdown` fence, once per file.
+- When a return holds `UNWRITTEN: <path>` blocks, write each fence body verbatim to that path with the Write tool, creating the folder if it is missing.
+- Do this before showing anything or dispatching the next stage. It is the one exception to "never load file bodies": copy the text only, never summarise it or act on it.
+- Then continue as if the agent had written the file, and say nothing about it except one line if the write itself failed.
+
 ## Stage 0: intake, route, mode (you do this yourself)
 1. Detect mode with git, not by looking for a .git folder (a worktree's .git is a file). If `git rev-parse --show-toplevel` succeeds, it is single-repo. Otherwise, if child folders are git repos (`git -C <child> rev-parse --show-toplevel` succeeds, skipping children whose `.git` is a file), it is cross-repo. If both apply (a repo containing sub-repos), ask the user once.
 2. Pick the route: analysis, bug-fix or feature.
@@ -96,23 +102,24 @@ In-repo, durable:
 ## Console questions
 The one list of what is asked in the console (AskUserQuestion). GATE_UI=console: everything. GATE_UI=browser: only these, plus a gate the user switched to the terminal (`console` action); every other question goes on a gate page (Gate 1, Gate 2 or a blocker gate).
 - Stage 0, before GATE_UI and the task folder exist: the mode question (step 1), the route choice and missing requirement text (step 2).
-- Stop notices, not questions: a BLOCKED repo or the task branch checked out in another worktree (`branch-prep` section 3). The run stops before any Gate 1 page.
+- Single repo: Gate 1, i.e. every branch-prep question (`branch-prep` section 4, 'Where Gate 1 is asked'), and its section 5 questions (Keep overwrite, worktree folder exists), one at a time, even with the browser.
+- Stop notices, not questions: a BLOCKED repo (`branch-prep` section 3; a task branch checked out in another worktree is RESUME, not a stop). The run stops before any Gate 1 page.
 - Gates 3 and 4: one yes/no question each.
 - The `wait` timeout prompt (`browser-gate` section 4 step 5).
 - Escalation: the offer to switch route.
-Everything branch prep needs (base, remote, saving the `## Branching` block, fetch failure, reuse branch, local or remote base, repo set, new branch or current branch, Keep/Stash/Worktree, worktree folder) is a Gate 1 question; a missing username uses the `setup` form. See `branch-prep` sections 2 to 4.
+Cross-repo: everything branch prep needs (base, remote, saving the `## Branching` block, fetch failure, reuse branch, local or remote base, repo set, new branch or current branch, Keep/Stash/Worktree, worktree folder) is a Gate 1 question; a missing username uses the `setup` form. See `branch-prep` sections 2 to 4.
 
 ## Routes
-- analysis: 0, then 0b (cross-repo), then Gate 1, then fetch and behind-warning only (see `branch-prep` section 1; no questions), then analyzer (dispatched with `route=analysis`, so it returns the short report view), then present the report (see "Presenting an analysis"), then STOP. The report is the deliverable.
+- analysis: 0, then 0b (cross-repo), then Gate 1 (cross-repo: page confirming the repo set; single repo: one line, no page), then fetch and behind-warning only (see `branch-prep` section 1; no questions), then analyzer (dispatched with `route=analysis`, so it returns the short report view), then present the report (see "Presenting an analysis"), then STOP. The report is the deliverable.
 - bug-fix: 0, then 0b (cross-repo), then Gate 1 merged with branch prep, then analyzer (narrow), then planner (light), then Gate 2 (plan approval and open questions, required before the implementer), then implementer (only once plan.md has `## Approved:`), then verifier, then Gate 4 only if the verifier lists affected tests (Dispatch step 6), then knowledge-updater. Skip Gate 3 unless the user asks.
 - feature: all stages, all gates, including branch prep.
 - Single-repo: skip 0b. Branch prep still runs on bug-fix and feature.
 
 ## Dispatch order and gates
-Gates 1 and 2 are shown through the `browser-gate` skill when it is usable (user config `ui` is `browser` or unset, not a remote session, server starts), so the user can read the understanding, repos, plan and questions in a page, answer there, ask their own questions and raise concerns. Invoke the browser-gate skill (Skill tool) at Gate 1 and Gate 2 and follow its sections 1-4. Console questions: only per 'Console questions'. Your run resumes when they submit. If it is not usable, run the gate in the console exactly as described below. Questions from the analyzer and planner arrive as a structured block (see `user-summaries`). In the browser, copy that `questions` block into the gate file (a refined question replaces its old one, per 'Free text on a question') and print no questions in the console, including the analyzer's numbered Open questions list. Only when the browser is unusable, print them numbered in the console.
+Gate 1 (cross-repo) and Gate 2 are shown through the `browser-gate` skill when it is usable (user config `ui` is `browser` or unset, not a remote session, server starts), so the user can read the understanding, repos, plan and questions in a page, answer there, ask their own questions and raise concerns. Invoke the browser-gate skill (Skill tool) at Gate 1 (cross-repo) and Gate 2 and follow its sections 1-4. Console questions: only per 'Console questions'. Your run resumes when they submit. If it is not usable, run the gate in the console exactly as described below. Questions from the analyzer and planner arrive as a structured block (see `user-summaries`). In the browser, copy that `questions` block into the gate file (a refined question replaces its old one, per 'Free text on a question') and print no questions in the console, including the analyzer's numbered Open questions list. Only when the browser is unusable, print them numbered in the console.
 
 1. (cross-repo) discovery.
-2. Branch prep, per the `branch-prep` skill, on bug-fix and feature routes. Cross-repo: scan the proposed repo set, then show ONE combined Gate 1 screen (repo set plus branch actions). Single-repo: the same flow with a one-row table. Analysis route: Gate 1 confirms the repo set only. Title: `Gate 1 · Confirm repos` (analysis) or `Gate 1 · Confirm repos and branch`, see `browser-gate` Content fields. Invoke the browser-gate skill (Skill tool) for Gate 1 and follow its sections 1-4. GATE_UI decides the Gate 1 form, see `branch-prep` section 4. Branch-prep questions go in `gate-1.json` `questions`, and Gate 1 may take a second round (`branch-prep` section 4).
+2. Branch prep, per the `branch-prep` skill, on bug-fix and feature routes. Cross-repo: scan the proposed repo set, then show ONE combined Gate 1 screen (repo set plus branch actions). Single repo: the terminal form (`branch-prep` section 4), no `gate-1.json`; RESUME or analysis route: one line, no questions. Analysis route, cross-repo: Gate 1 confirms the repo set only. Title: `Gate 1 · Confirm repos` (analysis) or `Gate 1 · Confirm repos and branch`, see `browser-gate` Content fields. Cross-repo: invoke the browser-gate skill (Skill tool) for Gate 1 and follow its sections 1-4. Where and how Gate 1 is asked: `branch-prep` section 4. Cross-repo with the browser: branch-prep questions go in `gate-1.json` `questions`, and Gate 1 may take a second round (`branch-prep` section 4).
 3. analyzer (per repo). Bug-fix and feature: show its understanding (browser: in the Gate 2 page, not the console). Analysis route: present the report as below, then STOP.
 4. planner. GATE 2: invoke the browser-gate skill (Skill tool) and follow its sections 1-4. Title `Gate 2 · Approve the plan: <topic>` (`browser-gate` Content fields), the same in every round. The user approves the plan and answers open questions; with zero questions the gate is still shown and still needs approve. After triage finds no CLARIFY, append the current questions' answers (base ids, see 'Free text on a question') and `## Approved: <timestamp>` to plan.md. In the browser, one page carries the understanding, the plan and the questions of both the analyzer and the planner; "revise" re-runs the planner and "ask" is answered by a subagent, each as a new round of the same gate.
 5. implementer (one per repo).

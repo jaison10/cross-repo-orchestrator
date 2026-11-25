@@ -16,7 +16,7 @@ Read the rules before writing code:
 - Also read `${CLAUDE_PLUGIN_ROOT}/rules/efcore.md` if it touches EF Core (DbContext, migrations, LINQ-to-entities). Read database.md with it.
 - Decide which to read from the plan and the files you will edit. When unsure, read it.
 
-Load the `adr-format` skill for decision logging.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/adr-format/SKILL.md` for decision logging.
 
 ## Paths
 You receive WORK, MAIN, the branch, START, the PARENT task path and your repo's task path.

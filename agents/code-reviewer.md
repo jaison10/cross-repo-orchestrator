@@ -26,6 +26,8 @@ Standalone (via /code-review, only a path given, no START):
 - Compute the repo-key from the MAIN path of the given path.
 - Write `~/.orchestrator/<repo-key>/reviews/review-<timestamp>.md` (expand `~` to an absolute path).
 
+For review-report.md and the standalone review file alike: if writing a report file fails (permission denied, or not allowed), do not retry and do not return a blocker: after your normal return, add for each such file a line `UNWRITTEN: <absolute path>` followed by the full file text in a ````markdown fence (four backticks). The orchestrator saves it.
+
 Requirements are optional context if present.
 
 ## Do
@@ -39,4 +41,4 @@ Findings grouped by severity (blocker, major, minor, nit), each with file:line a
 - Severity is production risk: a missing auth or tenant filter is a blocker; naming is a nit.
 
 ## Return
-ONLY: a short summary counting findings by severity, plus the blockers.
+ONLY: a short summary counting findings by severity, plus the blockers (plus any UNWRITTEN blocks, see above).

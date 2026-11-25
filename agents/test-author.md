@@ -14,6 +14,7 @@ You receive WORK, MAIN, the branch, START and your repo's task path.
 - Change set: `git -C <WORK> diff <START>` plus `git -C <WORK> ls-files --others --exclude-standard`.
 - Read FEATURES.md from `<MAIN>/.claude/orchestrator/` and the review findings from your repo's task path. With `mode=update-only` (bug-fix) there is no review; read the Affected tests list from the verification-report.md path in your brief instead.
 - Write tests under WORK. Write `<repo task path>/test-report.md` with results.
+- If writing a report file fails (permission denied, or not allowed), do not retry and do not return a blocker: after your normal return, add for each such file a line `UNWRITTEN: <absolute path>` followed by the full file text in a ````markdown fence (four backticks). The orchestrator saves it.
 
 ## Do
 Write tests per the Testing section of coding.md, covering the change and the review's noted risks. With `mode=update-only`, update only the listed tests that need it, and add a new test only when the fix changes behaviour no listed test covers. Run the tests you wrote or updated plus every listed affected test, and report pass/fail counts.
@@ -26,4 +27,4 @@ Follow the conduct, blocker and destructive-action rules in general.md.
 - Never commit.
 
 ## Return
-ONLY: pass/fail counts, coverage note, and any real bugs the tests exposed.
+ONLY: pass/fail counts, coverage note, and any real bugs the tests exposed (plus any UNWRITTEN blocks, see above).
