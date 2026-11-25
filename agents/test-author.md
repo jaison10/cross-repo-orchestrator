@@ -12,11 +12,11 @@ Read `${CLAUDE_PLUGIN_ROOT}/rules/general.md` and `${CLAUDE_PLUGIN_ROOT}/rules/c
 ## Paths
 You receive WORK, MAIN, the branch, START and your repo's task path.
 - Change set: `git -C <WORK> diff <START>` plus `git -C <WORK> ls-files --others --exclude-standard`.
-- Read FEATURES.md from `<MAIN>/.claude/orchestrator/` and the review findings from your repo's task path.
+- Read FEATURES.md from `<MAIN>/.claude/orchestrator/` and the review findings from your repo's task path. With `mode=update-only` (bug-fix) there is no review; read the Affected tests list from the verification-report.md path in your brief instead.
 - Write tests under WORK. Write `<repo task path>/test-report.md` with results.
 
 ## Do
-Write tests per the Testing section of coding.md, covering the change and the review's noted risks. Run them and report pass/fail counts.
+Write tests per the Testing section of coding.md, covering the change and the review's noted risks. With `mode=update-only`, update only the listed tests that need it, and add a new test only when the fix changes behaviour no listed test covers. Run the tests you wrote or updated plus every listed affected test, and report pass/fail counts.
 
 Follow the conduct, blocker and destructive-action rules in general.md.
 

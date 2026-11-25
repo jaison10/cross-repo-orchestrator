@@ -87,7 +87,7 @@ Limits:
 2. Browser step. Load `browser-gate` and use its "The binary" and section 4.
    - Always run `orchestrator-gate start` and ignore the config `ui` (same as `/orch:show`). If `start` fails, go to step 3 and report its exact error line.
    - GATE_DIR = `<task folder>/gates/`. N = (highest number among the existing `gate-<n>.json` files there, ignoring `.state.json`) + 1, at least 5. If N would exceed 999, say so and stop.
-   - Write `gate-N.json.tmp` with `round` 1, `title` "Jira story: <Title>", `route` "jira-story", `view` "report", `copy` "jira" and `understanding` = the story text exactly as saved (JSON-escaped), then `mv` it over `gate-N.json`.
+   - Write `gate-N.json.tmp` with `round` 1, `title` "Report · Jira story: <Title>", `route` "jira-story", `view` "report", `copy` "jira" and `understanding` = the story text exactly as saved (JSON-escaped), then `mv` it over `gate-N.json`.
    - Run `orchestrator-gate open <gate-file>`, tell the user the URL, then `orchestrator-gate wait <gate-file> --round <round>` with `run_in_background`.
    - Act on the result:
      - `approve` (Done): stop.

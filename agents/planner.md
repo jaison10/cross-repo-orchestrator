@@ -18,7 +18,7 @@ You receive WORK, MAIN, the branch, START, and the PARENT task path.
 - A SHARED section: the feature, the cross-repo contract, change order and dependencies.
 - One PER-REPO section for each repo: what changes in that repo, referencing the contract.
 Implementers read the shared section plus their own repo's section only.
-- For any changed or removed symbol, signature, config key or contract, list its affected call sites and references in the repo's section.
+- For any changed or removed symbol, signature, config key or contract, list its affected call sites and references in the repo's section, and next to them the existing tests that cover them ("none found" is valid).
 
 ## Return
 ONLY the plan summary, in the `user-summaries` format: What will change, Key decisions (each with its reasoning), Technical notes (non-obvious only), Order and dependencies, What I'm NOT doing, Open questions. List every consequential decision; keep each to one line. Do not paste the full plan. End with the `questions` block from `user-summaries` (ids `p1`, `p2`, ...).

@@ -2,6 +2,51 @@
 
 A Claude Code plugin that analyses, fixes and builds features across one or many repos. It detects single vs cross-repo, picks only the stages the task needs, prepares the git branch, and stops at gates where you decide. Gates 1 and 2 can be answered in a **browser page** instead of the console.
 
+## Commands
+
+### `/orch:orchestrate [--analysis | --fix | --feature] <requirement>`
+
+Runs the pipeline described in [How it works](#how-it-works). The flag can be anywhere in the request and is stripped from the requirement.
+
+| Option | Effect | Example |
+|---|---|---|
+| `--analysis` | Read-only analysis, shown as a report page. No branch, no plan. | `/orch:orchestrate --analysis how are refunds calculated` |
+| `--fix` | Bug-fix route: narrow analysis, light plan, Gate 2, implement, verify. | `/orch:orchestrate --fix refund total ignores tax` |
+| `--bug` | Alias for `--fix`. | `/orch:orchestrate --bug login fails after timeout` |
+| `--feature` | Feature route: all stages and gates. | `/orch:orchestrate --feature add partial refunds` |
+| none | You pick the route in the console; the guess is marked (Recommended). | `/orch:orchestrate add partial refunds` |
+
+Two different route flags make it ask which one you meant. You can change the route later at any gate.
+
+An analysis is shown in the browser as a short report: a TL;DR, flowcharts and sequence diagrams (drawn offline, no network), a components table, findings and assumptions, with collapsible sections, Expand/Collapse all, a "Show details" toggle, Copy as Markdown, enlargeable diagrams and Print. If you answer any of its open questions, **Re-analyse with my answers** sends them back and the page shows the updated report as a new round; Done ignores unsent answers.
+
+### `/orch:show <file.md>`
+
+Opens any markdown file (plan, old analysis) as a report page, the same way as an analysis. No pipeline run. Always uses the browser, whatever `ui` says; prints to the console only if `start` fails. Done closes it, "Show in terminal instead" prints it, and you can ask follow-up questions on the page. No Re-analyse button (that is analysis-route only).
+
+```
+/orch:show C:/Users/me/.orchestrator/shop-1a2b3c4d/tasks/refund-endpoint-2026-11-15/plan.md
+```
+
+### `/orch:code-review [repo or path]`
+
+Runs the code-reviewer alone, with no pipeline state. No path: the current folder. It reviews uncommitted changes, or the last commit if the tree is clean, and writes `~/.orchestrator/<repo-key>/reviews/review-<timestamp>.md`.
+
+```
+/orch:code-review
+/orch:code-review C:/src/shop-api
+```
+
+### `/orch:jira-story`
+
+Plan path is optional. Turns an existing `plan.md` into one PM-style Jira story and shows it as a report page, with Copy buttons per section and for the whole description, in Jira Cloud (rich text) or wiki markup (Server/DC) format. The orchestrator never calls it. With no path it uses `plan.md` (and `analysis-report.md` for Background) from the newest task folder of the current repo, and stops with "no plan found" if there is none. Pass a path only to pick a different task. A bare `plan.md` is not resolved; give the full path. A plan outside `~/.orchestrator/<key>/tasks/<task-slug>/` uses `~/.orchestrator/<repo-key>/tasks/jira-<plan-stem>-<YYYY-MM-DD>/`. Earlier stories are never overwritten (`-2`, `-3`, ...).
+
+```
+/orch:jira-story
+/orch:jira-story <full path to plan.md>
+/orch:jira-story C:/Users/me/.orchestrator/shop-1a2b3c4d/tasks/refund-endpoint-2026-11-15/plan.md
+```
+
 ## Install
 
 In Claude Code:
@@ -13,20 +58,6 @@ In Claude Code:
 ```
 
 Nothing else to install. The browser page is served by a small binary that ships inside the plugin (Windows x64, macOS Apple silicon, Linux x64 including WSL) and carries its own runtime.
-
-## Use
-
-```
-/orch:orchestrate [--analysis | --fix | --feature] <what you want>
-/orch:show <file.md>
-/orch:code-review <repo or path>
-/orch:jira-story [plan path]
-```
-
-Pass a route flag to pick the route yourself (`--bug` is an alias for `--fix`). Without one, you are asked to choose between analysis, bug-fix and feature, with the orchestrator's guess pre-selected.
-
-An analysis is shown in the browser as a short report: a TL;DR, flowcharts and sequence diagrams (drawn offline, no network), a components table, findings and assumptions, with collapsible sections, Expand/Collapse all, a "Show details" toggle, Copy as Markdown, enlargeable diagrams and Print. `show` opens any markdown file the same way.
-`/orch:jira-story` shows the story the same way, with Copy buttons per section and for the whole description, in Jira Cloud (rich text) or wiki markup (Server/DC) format.
 
 ## How it works
 
@@ -52,24 +83,20 @@ flowchart TD
     I -- "no" --> K
     J --> K["Read-only check of each repo:<br/>uncommitted changes? merge in progress?<br/>branch name already used?"]
     K -- "problem Claude cannot decide for you<br/>(merge in progress, detached HEAD,<br/>branch open in another worktree)" --> X["Run stops. Claude tells you<br/>in the terminal what to fix"]
-    K --> L["GATE 1 page: confirm repos,<br/>and for repos with uncommitted changes<br/>choose Keep, Stash or Worktree"]
+    K --> L["GATE 1 page: confirm repos,<br/>pick new branch or stay on yours,<br/>and for new branches with uncommitted changes<br/>choose Keep, Stash or Worktree"]
     L --> M{"Job type"}
     M -- "analysis" --> N["Only fetch from the remote and warn<br/>if your copy is behind. No branch is made"]
-    M -- "bug-fix / feature" --> O["New branch (or worktree) is created.<br/>Next: analysis"]
+    M -- "bug-fix / feature" --> O["New branch (or worktree) is created,<br/>or Claude stays on your branch.<br/>Next: analysis"]
 ```
 
 **Plain-language key**
 
 | Term | Meaning |
 |---|---|
-| Job type (route) | `--analysis` = explain only, `--fix` = bug fix, `--feature` = new feature. |
-| Check the browser page can open | Claude reads your `ui` setting and starts the small local web server (port 4402). If that works, all approvals show as web pages. The terminal is used instead when `ui` is `console`, you are on an SSH session, or the server cannot start. It says why once. |
-| Discovery suggests repos | Only when you run from a folder holding several repos. It lists the repos that look relevant, with a reason each. You confirm or change the list at Gate 1. |
-| Read-only check | Claude looks at git state only. Nothing is changed yet. |
-| Keep / Stash / Worktree | Only for repos with uncommitted changes. **Keep**: carry your changes onto the new branch. **Stash**: put them aside, start from a clean branch (get them back with `git stash pop`). **Worktree**: leave your folder untouched and make the new branch in a separate folder. |
-| Gate 1 page | The first approval page. It is saved as `gates/gate-1.json` in the task folder (you never edit it). |
-| Fetch and warn | Downloads the latest remote info and tells you if your checkout is behind. Analysis never creates a branch. |
-| Work folder, main folder, start point | Internal names the agents use: the folder where code is edited (your repo, or the worktree), your main repo folder, and the commit the new branch starts from (usually `origin/<base branch>`). |
+| Browser or terminal | Approvals open as pages from a local server (port 4402), or in the terminal when `ui` is `console`, you are on SSH, or the server cannot start (Claude says why once). |
+| New branch / Stay | Per repo. **New branch** (recommended) starts fresh from the remote base, taking your uncommitted changes along. **Stay** works on your current branch as it is; the page warns you if that is the base (like master). |
+| Keep / Stash / Worktree | For a new branch over uncommitted changes. **Keep** carries them over, **Stash** sets them aside (`git stash pop` restores them), **Worktree** makes the branch in a separate folder and leaves yours untouched. |
+| Work folder, main folder, start point | Agent terms: where code is edited (your repo or the worktree), your main repo folder, and the commit the new branch starts from (usually `origin/<base branch>`; the current commit when you stay). |
 
 ### Stages after Gate 1: analyze, plan, approve, build, check
 
@@ -79,12 +106,16 @@ flowchart TD
 flowchart TD
     A["Analyzer (opus) reads the code.<br/>Writes: analysis-report.md"] --> R{"Job type"}
     R -- "analysis" --> S["Report opens in the browser.<br/>Writes: analysis-view.md. Run ends here"]
+    S -- "Re-analyse with my answers" --> A
     R -- "bug-fix / feature" --> P["Planner (opus) writes the plan.<br/>Writes: plan.md (shorter for bug-fix)"]
     P --> G2["GATE 2 page: read the plan,<br/>answer questions, then Approve or Request changes"]
     G2 -- "Request changes" --> P
     G2 -- "Approve" --> I["Implementer (opus) edits the code,<br/>one per repo. Notes its choices in decisions.md"]
+    I -. "stuck: needs your answer" .-> BL["Blocker: see When an agent gets stuck below.<br/>After your answer, the implementer continues"]
+    BL -.-> I
     I --> V["Verifier (sonnet) compares the change<br/>with the plan. Writes: verification-report.md"]
-    V -- "bug-fix" --> K
+    V -- "bug-fix, tests cover the change" --> G4
+    V -- "bug-fix, none" --> K
     V -- "feature" --> G3["GATE 3 (terminal): start a code review?"]
     G3 --> CR["Code-reviewer (opus). Writes: review-report.md"]
     CR --> G4["GATE 4 (terminal): write tests?"]
@@ -97,19 +128,15 @@ flowchart TD
 
 | Term | Meaning |
 |---|---|
-| Analyzer | Reads the relevant code and explains what your request involves (goal, scope, findings, assumptions). |
-| Planner | Turns that understanding into a step-by-step plan, plus a plain summary and any questions for you. |
-| Gate 2 | The approval page for the plan. **Approve** lets the build start. **Request changes** sends your concerns back to the planner. Questions must be answered first. |
-| Implementer | Makes the code changes in your work folder, following the plan only. It never commits. |
-| Verifier | Checks the change does what the plan says and flags anything extra. It edits nothing. |
-| Gate 3 / Gate 4 | Simple yes/no questions in the terminal: review the code? write tests? (Feature jobs only; for bug-fix they are skipped unless you ask.) |
-| decisions.md | A short log of choices the implementer made, stored in the repo's `.claude/orchestrator/`. |
-| Report page (analysis jobs) | Instead of a plan, you get the analysis as a readable page with a Done button and a question box. |
+| Gate 2 | Plan approval, in the browser or terminal as at Gate 1. Answer its questions first; **Approve** starts the build, **Request changes** sends your concerns back to the planner. |
+| Implementer | Edits only what the plan says, in the work folder, and never commits. |
+| Verifier | Flags anything that differs from the plan and edits nothing. |
+| decisions.md | The implementer's log of its choices, in the repo's `.claude/orchestrator/`. |
 
 | Job type | Stages |
 |---|---|
 | analysis | Setup, Gate 1 (repos only), fetch, analyzer, report page. Stops there: no branch, no plan. |
-| bug-fix | Setup, Gate 1, analyzer (narrow), planner (short), **Gate 2 (always)**, implementer, verifier, knowledge-updater. |
+| bug-fix | Setup, Gate 1, analyzer (narrow), planner (short), **Gate 2 (always)**, implementer, verifier, knowledge-updater. If the verifier finds existing tests that cover the change, Gate 4 (terminal) asks whether the test-author should update and run them, with no new tests unless the fix changes behaviour they do not cover. No code review unless you ask (the verifier still checks the change against the plan). |
 | feature | Everything, including Gates 3 and 4. |
 | several repos | Any job type: discovery runs first, and Gate 1 shows the repo list and branch choices together. |
 
@@ -136,9 +163,9 @@ flowchart TD
 
 | Term | Meaning |
 |---|---|
-| Blocker | A stop-and-ask report from an agent. Types: `needs-analysis`, `question`, `permission`. |
-| Page for blockers | Saved as `gate-5.json`, `gate-6.json`, ... in the task's `gates/` folder (you never edit them). |
-| Approval removed | A revised plan is a new plan, so the "Approved" line in `plan.md` is dropped until you approve again. |
+| Blocker types | `needs-analysis` (plan or analysis is wrong), `question` (your decision), `permission` (a risky action). |
+| Blocker page | Titled `Blocker ·`, saved as `gate-5.json`, `gate-6.json`, ... in the task's `gates/` folder (you never edit them). |
+| Approval removed | A revised plan drops the `## Approved:` line in `plan.md` until you approve again. |
 
 ### Agents, models, inputs and outputs
 
@@ -180,51 +207,13 @@ In the repo, durable:
 
 `repo-key` is `<folder-name>-<first 8 hex of SHA-1 of the main repo path>`; worktrees of one repo share it.
 
-## Commands
+## How Claude answers you
 
-### `/orch:orchestrate [--analysis | --fix | --feature] <requirement>`
-
-Runs the pipeline above. The flag can be anywhere in the request and is stripped from the requirement.
-
-| Option | Effect | Example |
-|---|---|---|
-| `--analysis` | Read-only analysis, shown as a report page. No branch, no plan. | `/orch:orchestrate --analysis how are refunds calculated` |
-| `--fix` | Bug-fix route: narrow analysis, light plan, Gate 2, implement, verify. | `/orch:orchestrate --fix refund total ignores tax` |
-| `--bug` | Alias for `--fix`. | `/orch:orchestrate --bug login fails after timeout` |
-| `--feature` | Feature route: all stages and gates. | `/orch:orchestrate --feature add partial refunds` |
-| none | You pick the route in the console; the guess is marked (Recommended). | `/orch:orchestrate add partial refunds` |
-
-Two different route flags make it ask which one you meant. You can change the route later at any gate.
-
-### `/orch:show <file.md>`
-
-Opens any markdown file (plan, old analysis) as a report page. No pipeline run. Always uses the browser, whatever `ui` says; prints to the console only if `start` fails. Done closes it, "Show in terminal instead" prints it, and you can ask follow-up questions on the page.
-
-```
-/orch:show C:/Users/me/.orchestrator/shop-1a2b3c4d/tasks/refund-endpoint-2026-11-15/plan.md
-```
-
-### `/orch:code-review [repo or path]`
-
-Runs the code-reviewer alone, with no pipeline state. No path: the current folder. It reviews uncommitted changes, or the last commit if the tree is clean, and writes `~/.orchestrator/<repo-key>/reviews/review-<timestamp>.md`.
-
-```
-/orch:code-review
-/orch:code-review C:/src/shop-api
-```
-
-### `/orch:jira-story [plan path]`
-
-Turns an existing `plan.md` into one PM-style Jira story and shows it with Jira copy buttons. The orchestrator never calls it. The path is optional. With no path it uses `plan.md` (and `analysis-report.md` for Background) from the newest task folder of the current repo, and stops with "no plan found" if there is none. Pass a path only to pick a different task. A bare `plan.md` is not resolved; give the full path. A plan outside `~/.orchestrator/<key>/tasks/<task-slug>/` uses `~/.orchestrator/<repo-key>/tasks/jira-<plan-stem>-<YYYY-MM-DD>/`. Earlier stories are never overwritten (`-2`, `-3`, ...).
-
-```
-/orch:jira-story
-/orch:jira-story C:/Users/me/.orchestrator/shop-1a2b3c4d/tasks/refund-endpoint-2026-11-15/plan.md
-```
+Answers to your questions are short and to the point: a word or a sentence when that is enough, with a short example when it helps. More detail only when you ask. If you seem unsure, the answer is repeated shorter with an example. With many questions, Claude takes them one at a time in the terminal; on a page the list is kept short with a recommended answer pre-selected.
 
 ## Browser gates
 
-At Gate 1 (repos and branches) and Gate 2 (plan) the orchestrator opens a local page showing:
+At Gate 1 (repos and branches) and Gate 2 (plan) the orchestrator opens a local page. The page title tells you where you are: `Gate 1 · ...`, `Gate 2 · ...`, `Blocker · ...` or `Report · ...`. The page shows:
 
 - what Claude understood, with its assumptions
 - the effective repos, why each is in scope, and what to do with uncommitted changes (keep, stash, worktree)
@@ -284,6 +273,10 @@ bash ./build
 ```
 
 **Jira copy buttons missing on `/orch:jira-story`.** The page is embedded in the binary; committed binaries older than the page change do not have them. Rebuild (`GATE stop`, then `bash ./build`), or update the plugin to a version whose binaries include it.
+
+**Re-analyse with my answers button missing on the analysis report.** Same cause: the page is embedded in the binary, and binaries built before this feature lack it. The report must also have at least one answered question, and it only exists on analysis reports (not `/orch:show` or the Jira story). Rebuild as above.
+
+**A follow-up question is never answered.** Claude only sees your question while a `wait` is running, and `wait` gives up after 30 idle minutes. Tell Claude in the terminal: "I asked a follow-up on the page, please answer it", and it will read it and reopen the page.
 
 **PowerShell-only shell.** Claude runs the binary as `& "<skill base dir>\dist\win-x64\orchestrator-gate.exe" <command>`. It uses Bash when available and PowerShell only when not.
 

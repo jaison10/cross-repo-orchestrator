@@ -348,13 +348,14 @@ const state = () => data.state;
 const round = () => content().round || 1;
 const submitted = () => state().submitted && state().submitted.round === round() ? state().submitted : null;
 const answerOf = id => state().answers[id] || { choice: '', text: '' };
+const answered = q => { const a = answerOf(q.id); return !!(a.choice || (a.text || '').trim()); };
 const repoOn = r => (state().repos[r.id] && 'include' in state().repos[r.id]) ? state().repos[r.id].include : r.include !== false;
 const dirtyChoice = r => (state().repos[r.id] || {}).dirtyChoice || '';
 
 function problems() {
   const c = content(), out = [];
   if (c.view === 'report') return out;   // read-only report: nothing blocks "Done"
-  const open = (c.questions || []).filter(q => { const a = answerOf(q.id); return !a.choice && !(a.text || '').trim(); });
+  const open = (c.questions || []).filter(q => !answered(q));
   if (open.length) out.push(`${open.length} question${open.length > 1 ? 's' : ''} left to answer`);
   if ((c.repos || []).length) {
     const on = c.repos.filter(repoOn);
@@ -544,6 +545,7 @@ function banner() {
   if (s.action === 'approve') return h('div', { class: 'banner ok' }, content().view === 'report' ? 'Done. You can close this tab and return to the terminal.' : 'Approved. You can return to the terminal; Claude is continuing.');
   if (s.action === 'console') return h('div', { class: 'banner warn' }, 'Switched to the terminal. Claude will ask you there.');
   if (s.action === 'ask') return h('div', { class: 'banner' }, 'Question sent. Claude is working on it; this page updates by itself.');
+  if (content().view === 'report') return h('div', { class: 'banner' }, 'Answers sent. Claude is re-analysing; this page updates by itself with the new report.');
   return h('div', { class: 'banner' }, 'Changes sent. Claude is revising; this page updates by itself with the next round.');
 }
 
@@ -581,7 +583,7 @@ function reposTable(c, locked) {
 
 function question(q, i, locked) {
   const a = answerOf(q.id);
-  const done = a.choice || (a.text || '').trim();
+  const done = answered(q);
   const typed = h('textarea', { rows: 2, disabled: locked, placeholder: (q.options || []).length ? 'Or write your own answer / add a comment…' : 'Your answer…', value: a.text || '',
     oninput: e => { const cur = answerOf(q.id); state().answers[q.id] = { choice: cur.choice || '', text: e.target.value }; save('a-' + q.id, { answer: { id: q.id, choice: cur.choice || '', text: e.target.value } }, 600); refreshActions(); } });
   const setChoice = opt => {
@@ -629,15 +631,18 @@ function concerns(locked) {
 function refreshActions() {
   if (!data || !base) return;
   const locked = !!submitted(), ps = problems();
-  const approve = $('#b-approve'), revise = $('#b-revise'), cons = $('#b-console'), report = content().view === 'report';
+  const c = content(), approve = $('#b-approve'), revise = $('#b-revise'), cons = $('#b-console'), report = c.view === 'report';
+  const canRe = report && c.reanalyse === true && (c.questions || []).some(answered);
   approve.disabled = locked || ps.length > 0;
   revise.disabled = locked;
-  revise.hidden = report;
+  revise.hidden = report && !canRe;
+  revise.textContent = report ? 'Re-analyse with my answers' : 'Request changes';
+  revise.title = report ? 'Send your answers. Claude re-runs the analysis and this page shows the updated report.' : '';
   cons.disabled = locked;
   approve.textContent = report ? 'Done' : 'Approve & continue';
   cons.textContent = report ? 'Show in terminal instead' : 'Answer in console instead';
   approve.title = ps.join('\n');
-  if (!busy) say(locked || report ? '' : ps[0] ? ps[0] + (ps.length > 1 ? ` (+${ps.length - 1} more)` : '') : 'Ready to approve.');
+  if (!busy) say(locked ? '' : report ? (canRe ? 'Done ignores your answers; Re-analyse sends them.' : '') : ps[0] ? ps[0] + (ps.length > 1 ? ` (+${ps.length - 1} more)` : '') : 'Ready to approve.');
 }
 async function submit(action) {
   busy = true; say('Sending…');
