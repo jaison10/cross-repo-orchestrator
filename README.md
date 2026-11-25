@@ -32,91 +32,127 @@ An analysis is shown in the browser as a short report: a TL;DR, flowcharts and s
 
 The orchestrator is the main thread (your session model). It never reads repo source; it dispatches subagents and passes only paths and short summaries between them. Only the main thread talks to you.
 
-### Stage 0 and Gate 1
+### Stage 0 and Gate 1: setup and your first approval
+
+**What this stage does:** before any analysis, it works out *what kind of job this is*, *which repos are involved*, and *where the changes will be made*. Nothing is changed in your repos until you approve on the Gate 1 page.
 
 ```mermaid
 flowchart TD
-    A["/orch:orchestrate request"] --> B{"Route flag?"}
-    B -- "--analysis / --fix (--bug) / --feature" --> C["Route set, echoed"]
-    B -- "none" --> D["Console: pick route (guess pre-selected)"]
+    A["You run /orch:orchestrate with a request"] --> B{"Did you add a flag?<br/>--analysis, --fix, --feature"}
+    B -- "yes" --> C["Job type is set"]
+    B -- "no" --> D["Claude asks you to pick the job type"]
     D --> C
-    C --> E{"git rev-parse --show-toplevel"}
-    E -- "succeeds" --> F["single-repo"]
-    E -- "fails, child folders are repos" --> G["cross-repo"]
-    F --> H["browser-gate: config + start<br/>GATE_UI = browser or console"]
+    C --> E{"Is the current folder one git repo?"}
+    E -- "yes" --> F["One repo"]
+    E -- "no, it holds several repos" --> G["Several repos"]
+    F --> H["Check the browser page can open<br/>(decided once, used for every approval)"]
     G --> H
-    H --> I{"cross-repo?"}
-    I -- "yes" --> J["Stage 0b: discovery (haiku)<br/>ranked repo table, no files"]
+    H --> I{"Several repos?"}
+    I -- "yes" --> J["Discovery agent (haiku) suggests<br/>which repos the request touches.<br/>Looks at repo names and notes only, not code"]
     I -- "no" --> K
-    J --> K["Branch-prep scan (main thread)"]
-    K -- "BLOCKED or branch in another worktree" --> X["Stop notice in console"]
-    K --> L["GATE 1: repos + branch actions<br/>Keep / Stash / Worktree<br/>gates/gate-1.json"]
-    L --> M{"Route"}
-    M -- "analysis" --> N["fetch + behind-warning only"]
-    M -- "bug-fix / feature" --> O["Create branch or worktree<br/>returns WORK, MAIN, branch, START"]
+    J --> K["Read-only check of each repo:<br/>uncommitted changes? merge in progress?<br/>branch name already used?"]
+    K -- "problem Claude cannot decide for you<br/>(merge in progress, detached HEAD,<br/>branch open in another worktree)" --> X["Run stops. Claude tells you<br/>in the terminal what to fix"]
+    K --> L["GATE 1 page: confirm repos,<br/>and for repos with uncommitted changes<br/>choose Keep, Stash or Worktree"]
+    L --> M{"Job type"}
+    M -- "analysis" --> N["Only fetch from the remote and warn<br/>if your copy is behind. No branch is made"]
+    M -- "bug-fix / feature" --> O["New branch (or worktree) is created.<br/>Next: analysis"]
 ```
 
-GATE_UI is `browser` only when the config `ui` is `browser` or unset, `SSH_CONNECTION` is unset, and `orchestrator-gate start` succeeds. It is decided once and reused for every gate.
+**Plain-language key**
 
-### Stages per route
-
-```mermaid
-flowchart TD
-    A["analyzer (opus)<br/>analysis-report.md"] --> R{"Route"}
-    R -- "analysis" --> S["Report page (gate-2.json, view: report)<br/>analysis-view.md, then STOP"]
-    R -- "bug-fix (narrow) / feature" --> P["planner (opus)<br/>plan.md (light on bug-fix)"]
-    P --> G2["GATE 2: approve plan + answer questions<br/>gates/gate-2.json; adds the Approved line to plan.md"]
-    G2 -- "Request changes" --> P
-    G2 -- "Approve" --> I["implementer (opus), per repo<br/>code in WORK, decisions.md"]
-    I --> V["verifier (sonnet)<br/>verification-report.md"]
-    V -- "bug-fix" --> K
-    V -- "feature" --> G3["GATE 3 (console): start review?"]
-    G3 --> CR["code-reviewer (opus), per repo<br/>review-report.md"]
-    CR --> G4["GATE 4 (console): write tests?"]
-    G4 --> T["test-author (sonnet), per repo<br/>tests in WORK, test-report.md"]
-    T --> K["knowledge-updater (haiku), per repo<br/>CLAUDE.md, ARCHITECTURE.md, FEATURES.md"]
-    K --> E["End-of-run reminders<br/>stash names, worktree remove"]
-```
-
-| Route | Stages |
+| Term | Meaning |
 |---|---|
-| analysis | 0, (0b discovery), Gate 1 (repo set only), fetch, analyzer, report page, stop. No branch, no plan. |
-| bug-fix | 0, (0b), Gate 1 + branch prep, analyzer (narrow), planner (light), Gate 2 (required), implementer, verifier, knowledge-updater. Gates 3 and 4 are skipped unless you ask. |
-| feature | All stages and all gates, including branch prep. |
-| cross-repo | Any route: discovery runs first and Gate 1 is one combined screen (repo set plus branch actions). |
+| Job type (route) | `--analysis` = explain only, `--fix` = bug fix, `--feature` = new feature. |
+| Check the browser page can open | Claude reads your `ui` setting and starts the small local web server (port 4402). If that works, all approvals show as web pages. The terminal is used instead when `ui` is `console`, you are on an SSH session, or the server cannot start. It says why once. |
+| Discovery suggests repos | Only when you run from a folder holding several repos. It lists the repos that look relevant, with a reason each. You confirm or change the list at Gate 1. |
+| Read-only check | Claude looks at git state only. Nothing is changed yet. |
+| Keep / Stash / Worktree | Only for repos with uncommitted changes. **Keep**: carry your changes onto the new branch. **Stash**: put them aside, start from a clean branch (get them back with `git stash pop`). **Worktree**: leave your folder untouched and make the new branch in a separate folder. |
+| Gate 1 page | The first approval page. It is saved as `gates/gate-1.json` in the task folder (you never edit it). |
+| Fetch and warn | Downloads the latest remote info and tells you if your checkout is behind. Analysis never creates a branch. |
+| Work folder, main folder, start point | Internal names the agents use: the folder where code is edited (your repo, or the worktree), your main repo folder, and the commit the new branch starts from (usually `origin/<base branch>`). |
 
-### Blockers
+### Stages after Gate 1: analyze, plan, approve, build, check
 
-Any agent may stop and return a blocker (`rules/general.md`). The orchestrator acts on its type; blocker gates are `gate-5.json`, `gate-6.json`, ...
+**What these stages do:** read the code to understand your request, write a plan, wait for your approval, make the change, then check it. Nothing is built until you approve the plan at Gate 2.
 
 ```mermaid
 flowchart TD
-    A["Agent returns blocker"] --> B{"type"}
-    B -- "needs-analysis" --> C["Re-run analyzer or planner"]
-    C --> D["Gate 2, new round<br/>plan rewritten, Approved line dropped"]
-    D --> Z["Re-dispatch blocked agent"]
-    B -- "question (or unclear)" --> E["Blocker gate: question + options"]
-    E --> F["Answer appended to plan.md"]
-    F --> Z
-    B -- "permission" --> G["Blocker gate: action, why, risk, safer option"]
-    G -- "approve" --> H["Permission recorded in plan.md"]
-    H --> Z
-    G -- "deny" --> Z2["Re-dispatch without it"]
+    A["Analyzer (opus) reads the code.<br/>Writes: analysis-report.md"] --> R{"Job type"}
+    R -- "analysis" --> S["Report opens in the browser.<br/>Writes: analysis-view.md. Run ends here"]
+    R -- "bug-fix / feature" --> P["Planner (opus) writes the plan.<br/>Writes: plan.md (shorter for bug-fix)"]
+    P --> G2["GATE 2 page: read the plan,<br/>answer questions, then Approve or Request changes"]
+    G2 -- "Request changes" --> P
+    G2 -- "Approve" --> I["Implementer (opus) edits the code,<br/>one per repo. Notes its choices in decisions.md"]
+    I --> V["Verifier (sonnet) compares the change<br/>with the plan. Writes: verification-report.md"]
+    V -- "bug-fix" --> K
+    V -- "feature" --> G3["GATE 3 (terminal): start a code review?"]
+    G3 --> CR["Code-reviewer (opus). Writes: review-report.md"]
+    CR --> G4["GATE 4 (terminal): write tests?"]
+    G4 --> T["Test-author (sonnet) writes and runs tests.<br/>Writes: test-report.md"]
+    T --> K["Knowledge-updater (haiku) refreshes<br/>CLAUDE.md, ARCHITECTURE.md, FEATURES.md"]
+    K --> E["Final reminders: any stash you made,<br/>worktree folders to remove"]
 ```
+
+**Plain-language key**
+
+| Term | Meaning |
+|---|---|
+| Analyzer | Reads the relevant code and explains what your request involves (goal, scope, findings, assumptions). |
+| Planner | Turns that understanding into a step-by-step plan, plus a plain summary and any questions for you. |
+| Gate 2 | The approval page for the plan. **Approve** lets the build start. **Request changes** sends your concerns back to the planner. Questions must be answered first. |
+| Implementer | Makes the code changes in your work folder, following the plan only. It never commits. |
+| Verifier | Checks the change does what the plan says and flags anything extra. It edits nothing. |
+| Gate 3 / Gate 4 | Simple yes/no questions in the terminal: review the code? write tests? (Feature jobs only; for bug-fix they are skipped unless you ask.) |
+| decisions.md | A short log of choices the implementer made, stored in the repo's `.claude/orchestrator/`. |
+| Report page (analysis jobs) | Instead of a plan, you get the analysis as a readable page with a Done button and a question box. |
+
+| Job type | Stages |
+|---|---|
+| analysis | Setup, Gate 1 (repos only), fetch, analyzer, report page. Stops there: no branch, no plan. |
+| bug-fix | Setup, Gate 1, analyzer (narrow), planner (short), **Gate 2 (always)**, implementer, verifier, knowledge-updater. |
+| feature | Everything, including Gates 3 and 4. |
+| several repos | Any job type: discovery runs first, and Gate 1 shows the repo list and branch choices together. |
+
+### When an agent gets stuck (blockers)
+
+Any agent may stop and ask instead of guessing. This is called a **blocker**. Claude shows it to you and continues only after your answer.
+
+```mermaid
+flowchart TD
+    A["An agent stops and reports it is stuck"] --> B{"Why?"}
+    B -- "The plan or analysis is wrong or missing something" --> C["Analyzer or planner runs again"]
+    C --> D["Gate 2 opens again with the revised plan.<br/>The old approval is removed, so you approve again"]
+    D --> Z["Stuck agent continues"]
+    B -- "It needs a decision only you can make" --> E["A page shows the question with options"]
+    E --> F["Your answer is added to plan.md"]
+    F --> Z
+    B -- "It needs to do something risky<br/>(delete files, change a database, install packages)" --> G["A page shows the exact action,<br/>why, the risk and a safer option"]
+    G -- "you approve" --> H["Permission is recorded in plan.md"]
+    H --> Z
+    G -- "you deny" --> Z2["Agent continues without it"]
+```
+
+**Plain-language key**
+
+| Term | Meaning |
+|---|---|
+| Blocker | A stop-and-ask report from an agent. Types: `needs-analysis`, `question`, `permission`. |
+| Page for blockers | Saved as `gate-5.json`, `gate-6.json`, ... in the task's `gates/` folder (you never edit them). |
+| Approval removed | A revised plan is a new plan, so the "Approved" line in `plan.md` is dropped until you approve again. |
 
 ### Agents, models, inputs and outputs
 
 | Stage | Agent | Model | Reads | Produces |
 |---|---|---|---|---|
-| 0, gates, branch prep | orchestrator (main thread) | inherits the session model | request, config, git state | `gates/gate-N.json`; reads `gate-N.state.json` |
-| 0b (cross-repo) | discovery | haiku | repo names, listings, first ~50 lines of README/CLAUDE.md, manifests | ranked repo table (no files) |
-| analyze | analyzer | opus | code in WORK, ARCHITECTURE.md, FEATURES.md | `analysis-report.md`, `analysis-view.md` (analysis route), ARCHITECTURE.md/FEATURES.md if missing or stale |
-| plan | planner | opus | `analysis-report.md`, code in WORK | `plan.md` |
-| implement | implementer | opus | approved `plan.md` (shared + own repo section), `rules/*.md` | code in WORK, ADR entries in `decisions.md` |
-| verify | verifier | sonnet | `plan.md`, `git diff <START>` + untracked files | `verification-report.md` |
+| 0, gates, branch prep | orchestrator (main thread) | inherits the session model | request, config, git state | the approval pages (`gates/gate-N.json`); reads your answers (`gate-N.state.json`) |
+| 0b (cross-repo) | discovery | haiku | repo names, listings, first ~50 lines of README/CLAUDE.md, manifests | a short list of likely repos with a reason each (no files written) |
+| analyze | analyzer | opus | code in the work folder, ARCHITECTURE.md, FEATURES.md | `analysis-report.md`, `analysis-view.md` (analysis route), ARCHITECTURE.md/FEATURES.md if missing or stale |
+| plan | planner | opus | `analysis-report.md`, code in the work folder | `plan.md` |
+| implement | implementer | opus | approved `plan.md` (shared + own repo section), `rules/*.md` | code in the work folder, choices logged in `decisions.md` |
+| verify | verifier | sonnet | `plan.md`, the git diff since the branch started, plus new files | `verification-report.md` |
 | review | code-reviewer | opus | change set, `rules/*.md` | `review-report.md` |
-| test | test-author | sonnet | change set, FEATURES.md, review findings, `rules/general.md`, `rules/coding.md` | tests in WORK, `test-report.md` |
-| knowledge | knowledge-updater | haiku | change set | CLAUDE.md (WORK root), ARCHITECTURE.md, FEATURES.md |
+| test | test-author | sonnet | change set, FEATURES.md, review findings, `rules/general.md`, `rules/coding.md` | tests in the work folder, `test-report.md` |
+| knowledge | knowledge-updater | haiku | change set | CLAUDE.md (work folder root), ARCHITECTURE.md, FEATURES.md |
 | `/orch:jira-story` | main thread, `jira-story` skill | sonnet (skill) | `plan.md`, optional `analysis-report.md` | `jira/STORY-<slug>-<date>.md` |
 
 The implementer and code-reviewer pick rule files by change type: `general.md` and `coding.md` always, plus `database.md`, `api.md`, `security.md`, `dotnet.md`, `efcore.md` when relevant.
@@ -138,8 +174,8 @@ The implementer and code-reviewer pick rule files by change type: `general.md` a
 
 In the repo, durable:
 
-- `CLAUDE.md` at the WORK root (tracked, rides on the feature branch; holds the team's `## Branching` block).
-- `ARCHITECTURE.md`, `FEATURES.md`, `decisions.md` under `<MAIN>/.claude/orchestrator/`, git-excluded via `.git/info/exclude` (never `.gitignore`).
+- `CLAUDE.md` at the root of the folder where code is edited (tracked, rides on the feature branch; holds the team's `## Branching` block).
+- `ARCHITECTURE.md`, `FEATURES.md`, `decisions.md` under `.claude/orchestrator/` in your main repo folder, git-excluded via `.git/info/exclude` (never `.gitignore`).
 - Cross-repo only: `<parent>/.claude/orchestrator/WORKSPACE.md`, an index of the repos.
 
 `repo-key` is `<folder-name>-<first 8 hex of SHA-1 of the main repo path>`; worktrees of one repo share it.
@@ -179,7 +215,7 @@ Runs the code-reviewer alone, with no pipeline state. No path: the current folde
 
 ### `/orch:jira-story [plan path]`
 
-Turns an existing `plan.md` into one PM-style Jira story and shows it with Jira copy buttons. The orchestrator never calls it. No path: the newest task folder's `plan.md`. A plan outside `~/.orchestrator/<key>/tasks/<task-slug>/` uses `~/.orchestrator/<repo-key>/tasks/jira-<plan-stem>-<YYYY-MM-DD>/`. Earlier stories are never overwritten (`-2`, `-3`, ...).
+Turns an existing `plan.md` into one PM-style Jira story and shows it with Jira copy buttons. The orchestrator never calls it. The path is optional. With no path it uses `plan.md` (and `analysis-report.md` for Background) from the newest task folder of the current repo, and stops with "no plan found" if there is none. Pass a path only to pick a different task. A bare `plan.md` is not resolved; give the full path. A plan outside `~/.orchestrator/<key>/tasks/<task-slug>/` uses `~/.orchestrator/<repo-key>/tasks/jira-<plan-stem>-<YYYY-MM-DD>/`. Earlier stories are never overwritten (`-2`, `-3`, ...).
 
 ```
 /orch:jira-story
@@ -237,7 +273,7 @@ In the commands below, `GATE` is the full path of the binary for your platform, 
 - Old plugin version cached (page lacks newer features): update the plugin, then `/reload-plugins`. A running server on an older version is replaced on the next `start`. Check with `GATE version` and `GATE status`.
 - The page did not open: the URL is printed in the terminal; open it yourself (or `browser` is `false`).
 
-**Gate 2 was skipped.** The implementer must never run before you approve Gate 2, on bug-fix too. Without `## Approved:` in `plan.md` the implementer returns a blocker. Tell Claude: "Show Gate 2 for plan.md before implementing." The analysis route has no Gate 2 by design (its `gate-2.json` is the report).
+**Gate 2 was skipped.** The implementer must never run before you approve Gate 2, on bug-fix too. Without `## Approved:` in `plan.md` the implementer returns a blocker. Tell Claude: "Show Gate 2 for plan.md before implementing." The analysis route has no Gate 2 by design (its report page is the only approval-style page).
 
 **A question asked on the page got no answer.** The `wait` behind the page timed out (30 idle minutes, exit code 2) or the run ended, so nothing is listening. Tell Claude "continue the gate" (it re-runs `GATE wait <gate-file> --round <N>`); the page keeps its state at the same URL. Raise the timeout with `GATE set idleMinutes 60`.
 
@@ -255,7 +291,7 @@ bash ./build
 
 **Stash or worktree conflicts.**
 - Keep: if the switch would overwrite files, Claude stashes, switches, then pops. If the pop conflicts, it stops, lists the files and keeps the stash entry. Resolve the files, then `git stash list` and `git stash drop <entry>` once you no longer need it.
-- Worktree: if the worktree folder already exists, Claude asks. The new folder lacks ignored files (`node_modules`, `bin/obj`, `.env`); restore or build there. If it is outside the launch folder, run `/add-dir <WORKPATH>`.
+- Worktree: if the worktree folder already exists, Claude asks. The new folder lacks ignored files (`node_modules`, `bin/obj`, `.env`); restore or build there. If it is outside the launch folder, run `/add-dir <worktree folder>`.
 - After merging: `git worktree remove <path>`.
 
 **Branch already exists / checked out in another worktree.**
